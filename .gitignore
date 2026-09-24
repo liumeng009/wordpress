@@ -1,0 +1,75 @@
+# ============================================================
+# WordPress core & infrastructure (managed by LocalWP)
+# ============================================================
+app/public/wp-admin/
+app/public/wp-includes/
+app/public/wp-*.php
+app/public/index.php
+app/public/readme.html
+app/public/license.txt
+app/public/xmlrpc.php
+
+# LocalWP specific files
+app/public/local-phpinfo.php
+app/public/local-xdebuginfo.php
+app/public/wp-config.php
+app/public/wp-config-sample.php
+app/public/.htaccess
+
+# wp-content — ignore by default, re-include specific paths below
+app/public/wp-content/index.php
+
+# WP default themes
+app/public/wp-content/themes/twentytwentyfive/
+app/public/wp-content/themes/twentytwentyfour/
+app/public/wp-content/themes/twentytwentythree/
+app/public/wp-content/themes/twentytwentytwo/
+app/public/wp-content/themes/twentytwentyone/
+app/public/wp-content/themes/twentytwenty/
+app/public/wp-content/themes/twentynineteen/
+app/public/wp-content/themes/generatepress/
+
+# Third-party plugins
+app/public/wp-content/plugins/advanced-custom-fields/
+app/public/wp-content/plugins/ai-engine/
+app/public/wp-content/plugins/vibe-ai/
+app/public/wp-content/plugins/index.php
+app/public/wp-content/plugins/hello.php
+app/public/wp-content/plugins/akismet/
+
+# WP runtime dirs
+app/public/wp-content/upgrade/
+app/public/wp-content/cache/
+app/public/wp-content/uploads/
+app/public/wp-content/backups/
+app/public/wp-content/mu-plugins/
+app/public/wp-content/debug.log
+app/public/wp-content/RENAME_MAP.md
+
+# ============================================================
+# Custom plugins — INCLUDE these (must come AFTER ignore rules)
+# ============================================================
+!app/public/wp-content/plugins/xxdq-products/
+!app/public/wp-content/plugins/xxdq-theme/
+!app/public/wp-content/plugins/xxdq-pim/
+!app/public/wp-content/plugins/xxdq-blocks/
+
+# ============================================================
+# Empty config dirs at repo root
+# ============================================================
+conf/
+logs/
+scripts/
+
+# ============================================================
+# Dev / debug scripts at repo root (one-off utilities)
+# ============================================================
+*.py
+*.ps1
+*.txt
+*.csv
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db

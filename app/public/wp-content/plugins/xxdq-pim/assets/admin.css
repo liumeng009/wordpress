@@ -1,0 +1,81 @@
+.xxdq-pim-wrap { max-width: 920px; }
+.xxdq-pim-form .form-table th { width: 200px; }
+.xxdq-pim-result { padding: 12px 16px; margin: 16px 0; }
+.xxdq-pim-result details { margin-top: 8px; }
+.xxdq-pim-result summary { cursor: pointer; font-weight: 500; }
+.xxdq-pim-tree {
+    background: #f6f7f7;
+    border: 1px solid #ddd;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    white-space: pre;
+    overflow-x: auto;
+}
+.xxdq-pim-wrap .button { margin-right: 8px; }
+
+.xxdq-pdf-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+}
+.xxdq-pdf-list__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #111;
+    transition: background .15s;
+}
+.xxdq-pdf-list__item:hover {
+    background: #f3f4f6;
+}
+.xxdq-pdf-list__icon {
+    font-size: 22px;
+    flex: 0 0 auto;
+}
+.xxdq-pdf-list__name {
+    flex: 1;
+    font-weight: 500;
+}
+.xxdq-pdf-list__size {
+    color: #6b7280;
+    font-size: 12px;
+}
+.xxdq-pdf-list__action {
+    color: #1565c0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.xxdq-prod-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: #f4f6fa;
+}
+.xxdq-prod-tech {
+    display: block;
+    width: 100%;
+    height: auto;
+    background: #fff;
+}
+
+/* Product detail page tech image (rendered by xxdq-products) */
+.xxdq-prod-detail__img .xxdq-prod-detail__tech {
+    display: block;
+    margin-top: 16px;
+    width: 100%;
+    height: auto;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
