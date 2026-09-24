@@ -55,17 +55,19 @@ $labels = [
     'short_desc'    => '简介',
 ];
 ?>
-<nav class="xxdq-breadcrumb">
-  <a href="<?php echo esc_url(home_url('/')); ?>">首页</a>
-  <span>›</span>
-  <a href="<?php echo esc_url(get_post_type_archive_link('product')); ?>">产品中心</a>
-  <?php if ($cat): ?>
+<div class="xxdq-product__bc">
+  <nav class="xxp-breadcrumb">
+    <a href="<?php echo esc_url(home_url('/')); ?>">首页</a>
     <span>›</span>
-    <a href="<?php echo esc_url(get_term_link($cat)); ?>"><?php echo esc_html($cat->name); ?></a>
-  <?php endif; ?>
-  <span>›</span>
-  <span class="xxdq-breadcrumb__current"><?php the_title(); ?></span>
-</nav>
+    <a href="<?php echo esc_url(get_post_type_archive_link('product')); ?>">产品中心</a>
+    <?php if ($cat): ?>
+      <span>›</span>
+      <a href="<?php echo esc_url(get_term_link($cat)); ?>"><?php echo esc_html($cat->name); ?></a>
+    <?php endif; ?>
+    <span>›</span>
+    <span class="xxp-breadcrumb__current"><?php the_title(); ?></span>
+  </nav>
+</div>
 
 <article class="xxdq-product">
   <div class="xxdq-product__hero">

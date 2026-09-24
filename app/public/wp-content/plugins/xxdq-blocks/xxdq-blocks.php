@@ -2,7 +2,7 @@
 /**
  * Plugin Name: XXDQ Blocks — Reusable ACF Blocks
  * Description: Page-builder blocks for XXDQ site. Replaces hardcoded shortcode-based page templates with Gutenberg blocks that admins can rearrange.
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author: XXDQ
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) exit;
 
 define('XXDQ_BLOCKS_DIR', plugin_dir_path(__FILE__));
 define('XXDQ_BLOCKS_URL', plugin_dir_url(__FILE__));
-define('XXDQ_BLOCKS_VERSION', '2.0.0');
+define('XXDQ_BLOCKS_VERSION', '2.0.1');
 
 require_once XXDQ_BLOCKS_DIR . 'includes/class-blocks-registry.php';
 require_once XXDQ_BLOCKS_DIR . 'includes/class-blocks-render.php';

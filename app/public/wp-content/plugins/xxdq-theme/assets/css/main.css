@@ -1,4 +1,4 @@
-﻿/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?   XX鐢垫皵 锟?Main Stylesheet
+/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?   XX鐢垫皵 锟?Main Stylesheet
    Industrial B2B Electrical Theme 锟?Professional Navy Blue
 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?*/
 
@@ -121,7 +121,7 @@ body {
   padding: 8px 12px;
 }
 
-/* Submenu (浜у搧涓績 dropdown) */
+/* Submenu (产品中心 dropdown) */
 .xxp-nav__has-sub {
   position: relative;
 }
@@ -141,8 +141,7 @@ body {
   display: none;
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   min-width: 200px;
   background: var(--xx-white);
   border: 1px solid var(--xx-border);
@@ -156,8 +155,7 @@ body {
   content: '';
   position: absolute;
   top: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
+  left: 20px;
   width: 12px;
   height: 12px;
   background: var(--xx-white);
@@ -187,8 +185,8 @@ body {
   display: block;
 }
 @keyframes xxdq-dropdown-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Mobile responsive */

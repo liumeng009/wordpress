@@ -316,7 +316,7 @@ function xxdq_register_options_fields() {
                 'label' => '公司名称',
                 'name'  => 'company_name',
                 'type'  => 'text',
-                'default_value' => 'XX电气',
+                'default_value' => '乐清市耕文电气有限公司',
             ],
             [
                 'key' => 'field_xxdq_company_intro',
@@ -434,7 +434,7 @@ function xxdq_register_options_fields() {
                 'label' => '版权文字',
                 'name'  => 'copyright_text',
                 'type'  => 'text',
-                'default_value' => '© 2026 XX电气 版权所有',
+                'default_value' => '© 2026 乐清市耕文电气有限公司 版权所有',
             ],
             [
                 'key' => 'field_xxdq_icp_number',

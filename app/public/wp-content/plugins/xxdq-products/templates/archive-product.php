@@ -104,11 +104,57 @@ if ($main_q->have_posts()) {
 ?>
 
 <header class="xxdq-product-archive__hero">
-  <h1><?php echo esc_html($page_title); ?></h1>
-  <?php if ($page_desc): ?>
-    <p class="xxdq-product-archive__lede"><?php echo wp_kses_post($page_desc); ?></p>
-  <?php endif; ?>
+  <div class="xxdq-product-archive__hero-inner">
+    <h1><?php echo esc_html($page_title); ?></h1>
+    <?php if ($page_desc): ?>
+      <p class="xxdq-product-archive__lede"><?php echo wp_kses_post($page_desc); ?></p>
+    <?php endif; ?>
+  </div>
 </header>
+
+<?php
+/* ── Breadcrumb (below hero, same 1200px cap as the layout below) ───── */
+$bc_archive_url = get_post_type_archive_link('product');
+$bc_parts = [
+    ['url' => home_url('/'),   'label' => '首页'],
+    ['url' => $bc_archive_url, 'label' => '产品中心'],
+];
+if ($is_tax) {
+    $term = get_queried_object();
+    if ($term && $term->taxonomy === 'product_category') {
+        // Walk up the parent chain (category is hierarchical).
+        $chain = [];
+        $cur   = $term;
+        while ($cur && !is_wp_error($cur)) {
+            $chain[] = $cur;
+            $cur     = $cur->parent ? get_term($cur->parent, 'product_category') : null;
+        }
+        $chain = array_reverse($chain);
+        foreach ($chain as $ancestor) {
+            $bc_parts[] = [
+                'url'   => get_term_link($ancestor),
+                'label' => $ancestor->name,
+            ];
+        }
+    } elseif ($term && $term->taxonomy === 'product_series') {
+        $bc_parts[] = ['url' => '', 'label' => $term->name];
+    }
+}
+?>
+<div class="xxdq-product-archive__bc">
+  <nav class="xxp-breadcrumb">
+    <?php foreach ($bc_parts as $i => $p): ?>
+      <?php if (!empty($p['url'])): ?>
+        <a href="<?php echo esc_url($p['url']); ?>"><?php echo esc_html($p['label']); ?></a>
+      <?php else: ?>
+        <span class="xxp-breadcrumb__current"><?php echo esc_html($p['label']); ?></span>
+      <?php endif; ?>
+      <?php if ($i < count($bc_parts) - 1): ?>
+        <span>›</span>
+      <?php endif; ?>
+    <?php endforeach; ?>
+  </nav>
+</div>
 
 <div class="xxdq-product-archive__layout">
   <aside class="xxdq-product-archive__sidebar">

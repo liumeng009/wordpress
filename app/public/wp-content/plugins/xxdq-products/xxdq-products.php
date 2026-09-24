@@ -189,6 +189,10 @@ add_filter('generate_sidebar_layout', function ($layout) {
 add_filter('body_class', function ($classes) {
     if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category') || is_tax('product_series')) {
         $classes[] = 'no-sidebar';
+        /* `full-width-content` lets GP give the content area 100% width
+         * so the dark hero can span the full viewport instead of being
+         * capped at the theme's 1200px content width. */
+        $classes[] = 'full-width-content';
         $classes[] = 'xxdq-product-page';
     }
     return $classes;

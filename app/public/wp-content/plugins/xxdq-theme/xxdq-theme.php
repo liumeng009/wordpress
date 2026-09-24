@@ -1,15 +1,15 @@
 ﻿<?php
 /**
- * Plugin Name: XX电气 Theme
- * Description: Custom site theme plugin for XX电气 - generates all custom homepage sections and styles.
- * Version: 2.0.0
+ * Plugin Name: 乐清市耕文电气有限公司 Theme
+ * Description: Custom site theme plugin for 乐清市耕文电气有限公司 (gengwen-electric) — generates all custom homepage sections and styles.
+ * Version: 2.0.6
  */
 
 if (!defined('ABSPATH')) exit;
 
 define('XXDQ_THEME_DIR', plugin_dir_path(__FILE__));
 define('XXDQ_THEME_URL', plugin_dir_url(__FILE__));
-define('XXDQ_THEME_VERSION', '2.0.0');
+define('XXDQ_THEME_VERSION', '2.0.6');
 
 /* ── 0. PIM ACF fields (实物图 / 描述图 / PDF) ─────────────
  * The PIM plugin owns these field-group definitions; we load them
@@ -86,8 +86,8 @@ add_action('generate_before_header', function () {
 <header class="xxp-nav" id="xxp-nav">
   <div class="xxdq-container xxp-nav__inner">
     <a href="<?php echo esc_url(home_url('/')); ?>" class="xxp-nav__logo">
-      <span class="xxp-nav__logo-mark">XX</span>
-      <span class="xxp-nav__logo-text">XX电气<small>电气连接件源头工厂</small></span>
+      <span class="xxp-nav__logo-mark">耕文</span>
+      <span class="xxp-nav__logo-text">乐清市耕文电气有限公司<small>电气连接件源头工厂</small></span>
     </a>
     <nav class="xxp-nav__menu">
       <a href="<?php echo esc_url(home_url('/')); ?>" class="<?php echo is_front_page() ? 'active' : ''; ?>">首页</a>
@@ -109,6 +109,7 @@ add_action('generate_before_header', function () {
           <?php endforeach; ?>
         </div>
       </div>
+      <a href="<?php echo esc_url(home_url('/news/')); ?>" class="<?php echo ($active_slug === 'news') ? 'active' : ''; ?>">新闻中心</a>
       <a href="<?php echo esc_url(home_url('/关于我们/')); ?>" class="<?php echo ($active_slug === '关于我们') ? 'active' : ''; ?>">关于我们</a>
       <a href="<?php echo esc_url(home_url('/联系我们/')); ?>" class="<?php echo ($active_slug === '联系我们') ? 'active' : ''; ?>">联系我们</a>
     </nav>
@@ -137,17 +138,17 @@ add_theme_support('custom-logo', [
  */
 add_action('generate_before_footer', function () {
     // Defaults — used when ACF is not active OR no options set.
-    $brand_intro = 'XX电气 — 源头工厂,10年+ 行业经验,产品通过 CE/RoHS/ISO9001 认证,出口品质,现货直发。';
+    $brand_intro = '乐清市耕文电气有限公司 — 源头工厂,10年+ 行业经验,产品通过 CE/RoHS/ISO9001 认证,出口品质,现货直发。';
     $product_archive = get_post_type_archive_link('product') ?: home_url('/product/');
     $quick_links = [
         ['label' => '首页',         'url' => home_url('/')],
         ['label' => '产品中心',     'url' => $product_archive],
         ['label' => '关于我们',     'url' => home_url('/关于我们/')],
-        ['label' => '新闻动态',     'url' => home_url('/news/')],
+        ['label' => '新闻中心',     'url' => home_url('/news/')],
         ['label' => '联系我们',     'url' => home_url('/联系我们/')],
     ];
     $main_products  = '铜鼻子 · 冷压端子 · 预绝缘端子 · 接插件 · 线缆附件 · 电力金具';
-    $copyright      = '© ' . date('Y') . ' XX电气 版权所有';
+    $copyright      = '© ' . date('Y') . ' 乐清市耕文电气有限公司 版权所有';
     $icp            = '';
 
     // Pull from ACF Options Page if available.
@@ -170,8 +171,8 @@ add_action('generate_before_footer', function () {
     }
 
     $company_name = function_exists('get_field')
-        ? (get_field('company_name', 'option') ?: 'XX电气')
-        : 'XX电气';
+        ? (get_field('company_name', 'option') ?: '乐清市耕文电气有限公司')
+        : '乐清市耕文电气有限公司';
 
     // Build quick-links <ul>
     $quick_html = '';
@@ -217,3 +218,30 @@ add_action('generate_before_footer', function () {
  * footer markup so we don't end up with two stacked footers.
  */
 add_filter('generate_footer', '__return_empty_string');
+
+/* ── 5. CUSTOM PAGE TEMPLATE ───────────────────────────────────
+ * WP pages (about / contact / inquiry / etc.) would otherwise render
+ * GeneratePress's plain page.php, which only emits the_content with no
+ * hero or breadcrumb. Force xxdq-blocks' templates/page.php instead so
+ * every page gets the same dark-gradient hero + xxp-breadcrumb + content
+ * layout as the news and product pages.
+ *
+ * Opt-out: a page can bypass this by giving itself any non-empty
+ * `page_template` (set via Page Attributes → Template in WP admin); we
+ * only intercept pages that are using the default template.
+ */
+add_filter('template_include', function ($template) {
+    if (is_page() && !is_front_page()) {
+        $page_id = get_queried_object_id();
+        if ($page_id) {
+            $chosen = get_page_template_slug($page_id);
+            if (empty($chosen)) {
+                $custom = WP_PLUGIN_DIR . '/xxdq-blocks/templates/page.php';
+                if (file_exists($custom)) {
+                    return $custom;
+                }
+            }
+        }
+    }
+    return $template;
+});

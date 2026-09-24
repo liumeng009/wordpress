@@ -26,6 +26,36 @@ class XXDQ_Blocks_Render {
     }
 
     /**
+     * Build the product card thumbnail HTML.
+     *
+     * Tries the ACF gallery fields (real_image → tech_image → image_2..4)
+     * via xxdq_product_gallery() first, then falls back to the WP featured
+     * image. Returns a placeholder only when both are absent. This mirrors
+     * the priority chain used by archive-product.php / single-product.php
+     * so the home hot-products grid shows the same primary image as the
+     * product detail page.
+     */
+    private static function product_thumb($pid) {
+        $url = '';
+        if (function_exists('xxdq_product_gallery')) {
+            $g   = xxdq_product_gallery($pid, 'medium');
+            $url = $g[0] ?? '';
+        }
+        if (empty($url)) {
+            $fid = get_post_thumbnail_id($pid);
+            if ($fid) {
+                $url = wp_get_attachment_image_url($fid, 'medium', false);
+            }
+        }
+        if (empty($url)) return '<span class="xxdq-product-card__noimg">无图</span>';
+        return sprintf(
+            '<img src="%s" alt="%s" loading="lazy" />',
+            esc_url($url),
+            esc_attr(get_the_title($pid))
+        );
+    }
+
+    /**
      * Replace legacy product URLs (e.g. `/产品中心/`, `/铜鼻子/`, `/冷压端子/`)
      * that were stored before we migrated to the real `product` post-type
      * archive and `product_category` taxonomy. The values were hardcoded
@@ -132,6 +162,24 @@ class XXDQ_Blocks_Render {
             ];
         }
 
+        // Cover-image lookup table. Static map keeps the home page stable
+        // without relying on per-category term-meta, and the local entries
+        // cover categories that don't yet have a real product photo.
+        //
+        // Photos are pre-downloaded to /wp-content/uploads/2026/09/ so the
+        // home page never depends on a third-party CDN. The connector
+        // category in particular uses a network-switch photo (red
+        // Ethernet cables plugged into a switch) — semantically a much
+        // better fit for "接插件" than the previous meeting-room shot.
+        $img_map = [
+            'copper'       => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_201200_204-300x225.png',
+            'cold'         => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_194852_420-300x258.png',
+            'preinsulated' => '/wp-content/uploads/2026/09/管型.jpg',
+            'connector'    => '/wp-content/uploads/2026/09/cat-connector.jpg',
+        ];
+        $fallback_img = '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_202135_542-283x300.png';
+
+
         $html = sprintf('<div class="xxdq-category-grid xxdq-category-grid--%s">', esc_attr($style));
         foreach ($cats as $cat) {
             $link = is_object($cat) && isset($cat->term_id)
@@ -140,11 +188,23 @@ class XXDQ_Blocks_Render {
             if (is_wp_error($link)) { continue; }
             $name = is_object($cat) ? $cat->name : $cat['name'];
             $desc = is_object($cat) ? $cat->description : ($cat['description'] ?? '');
-            $html .= sprintf('<a class="xxdq-category-card" href="%s">
-  <h3 class="xxdq-category-card__name">%s</h3>
-  <p class="xxdq-category-card__desc">%s</p>
-  <span class="xxdq-category-card__arrow">→</span>
-</a>', esc_url($link), esc_html($name), esc_html($desc));
+            $slug = is_object($cat) ? $cat->slug : $cat['slug'];
+            $img  = $img_map[$slug] ?? $fallback_img;
+            $html .= sprintf(
+                '<a class="xxdq-category-card" href="%s">
+  <div class="xxdq-category-card__media"><img src="%s" alt="%s" loading="lazy" /></div>
+  <div class="xxdq-category-card__body">
+    <h3 class="xxdq-category-card__name">%s</h3>
+    <p class="xxdq-category-card__desc">%s</p>
+    <span class="xxdq-category-card__arrow">→</span>
+  </div>
+</a>',
+                esc_url($link),
+                esc_url($img),
+                esc_attr($name),
+                esc_html($name),
+                esc_html($desc)
+            );
         }
         $html .= '</div>';
         return $html;
@@ -156,7 +216,7 @@ class XXDQ_Blocks_Render {
         if (!$q->have_posts()) return '<p class="xxdq-empty">暂无产品。</p>';
         $html = '<div class="xxdq-hot-products"><h2 class="xxdq-section-title">热门产品</h2><div class="xxdq-product-grid">';
         while ($q->have_posts()) { $q->the_post();
-            $img = has_post_thumbnail() ? get_the_post_thumbnail(get_the_ID(), 'medium') : '<span class="xxdq-product-card__noimg">无图</span>';
+            $img = self::product_thumb(get_the_ID());
             $html .= sprintf('<a class="xxdq-product-card" href="%s">%s<h3>%s</h3></a>',
                 esc_url(get_permalink()), $img, esc_html(get_the_title()));
         }
@@ -221,7 +281,7 @@ class XXDQ_Blocks_Render {
         if (!$q->have_posts()) return '<p class="xxdq-empty">此分类暂无产品。</p>';
         $html = sprintf('<div class="xxdq-category-archive"><h2 class="xxdq-section-title">%s</h2><div class="xxdq-product-grid">', esc_html($title));
         while ($q->have_posts()) { $q->the_post();
-            $img = has_post_thumbnail() ? get_the_post_thumbnail(get_the_ID(), 'medium') : '<span class="xxdq-product-card__noimg">无图</span>';
+            $img = self::product_thumb(get_the_ID());
             $html .= sprintf('<a class="xxdq-product-card" href="%s">%s<h3>%s</h3></a>',
                 esc_url(get_permalink()), $img, esc_html(get_the_title()));
         }
@@ -234,7 +294,7 @@ class XXDQ_Blocks_Render {
         return '<div class="xxdq-selector-tool">
   <h2>产品选型工具</h2>
   <p>根据您的线径、孔径等参数,快速匹配适合的端子型号。</p>
-  <a href="/技术资料/" class="xxdq-cta__btn">查看技术资料 →</a>
+  <a href="/news/" class="xxdq-cta__btn">查看新闻中心 →</a>
 </div>';
     }
 
@@ -384,7 +444,7 @@ class XXDQ_Blocks_Render {
         if (empty($slides)) {
             // Sensible fallback so the block always renders something on first activation.
             $hero_eyebrow = $title !== null && $title !== '' ? $title : '源头工厂 · 全产业链 · 现货直发';
-            $site_name    = get_bloginfo('name') ?: 'XX电气';
+            $site_name    = get_bloginfo('name') ?: '乐清市耕文电气有限公司';
             $slides = [
                 [
                     'image'    => '',
