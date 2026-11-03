@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Plugin Name: XXDQ Products
  * Description: Product CPT, single/archive templates.
@@ -30,7 +30,7 @@ add_action('init', function () {
         'menu_icon'           => 'dashicons-products',
         'supports'            => ['title', 'editor', 'excerpt', 'thumbnail', 'custom-fields', 'revisions'],
         'rewrite'             => ['slug' => 'product', 'with_front' => false],
-        'taxonomies'          => ['product_category', 'product_series'],
+        'taxonomies'          => ['product_category'],
     ]);
 
     /* product_category — top-level product categories (sidebar nav).
@@ -56,28 +56,7 @@ add_action('init', function () {
         'show_in_nav_menus' => true,
         'rewrite'           => ['slug' => 'product-category', 'with_front' => false, 'hierarchical' => true],
     ]);
-
-    /* product_series — sub-grouping within a category (e.g. 预绝缘端子 → SV / RV / DBV).
-     * Non-hierarchical (flat tags). Used by archive page for grouping. */
-    register_taxonomy('product_series', 'product', [
-        'labels' => [
-            'name'              => '产品系列',
-            'singular_name'     => '产品系列',
-            'search_items'      => '搜索系列',
-            'all_items'         => '所有系列',
-            'edit_item'         => '编辑系列',
-            'update_item'       => '更新系列',
-            'add_new_item'      => '添加新系列',
-            'new_item_name'     => '新系列名称',
-            'menu_name'         => '产品系列',
-        ],
-        'hierarchical'      => false,
-        'public'            => true,
-        'show_in_rest'      => true,
-        'show_admin_column' => true,
-        'show_in_nav_menus' => false,
-        'rewrite'           => ['slug' => 'product-series', 'with_front' => false],
-    ]);
+    /* product_series was removed in 2026-09: merged into hierarchical product_category. */
 });
 
 /* ── Front-end templates ────────────────────────────────────── */
@@ -108,7 +87,7 @@ add_filter('archive_template', function ($t) {
  * taxonomy pages fall back to the default index.php / search.php and the
  * sidebar + product grid never render. */
 add_filter('taxonomy_template', function ($t) {
-    if (is_tax('product_category') || is_tax('product_series')) {
+    if (is_tax('product_category')) {
         $custom = plugin_dir_path(__FILE__) . 'templates/archive-product.php';
         if (file_exists($custom)) return $custom;
         return locate_template(['taxonomy-product_category.php']) ?: $t;
@@ -180,14 +159,14 @@ function xxdq_media_id($field, $post_id = null) {
  * Our plugin provides its own sidebar; GP's widget area would otherwise
  * render a duplicate and visually overlap the nav dropdown. */
 add_filter('generate_sidebar_layout', function ($layout) {
-    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category') || is_tax('product_series')) {
+    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category')) {
         return 'no-sidebar';
     }
     return $layout;
 }, 20);
 
 add_filter('body_class', function ($classes) {
-    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category') || is_tax('product_series')) {
+    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category')) {
         $classes[] = 'no-sidebar';
         /* `full-width-content` lets GP give the content area 100% width
          * so the dark hero can span the full viewport instead of being
@@ -201,7 +180,7 @@ add_filter('body_class', function ($classes) {
 /* ── Force the theme's content container to be full-width on product pages
  * (GP default is 700px, we want the full 1200px to fit our sidebar + grid). */
 add_filter('generate_content_width', function ($width) {
-    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category') || is_tax('product_series')) {
+    if (is_singular('product') || is_post_type_archive('product') || is_tax('product_category')) {
         return 1400;
     }
     return $width;

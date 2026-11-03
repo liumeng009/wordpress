@@ -1,0 +1,5 @@
+/* Term meta — cover image picker (admin only) */
+.xxdq-cover-image-picker .button { margin-right: 6px; }
+.xxdq-cover-image-picker .xxdq-cover-image-preview { margin: 8px 0; min-height: 4px; }
+.xxdq-cover-image-picker .xxdq-cover-image-preview:empty { display: none; }
+.xxdq-cover-image-picker .xxdq-cover-image-preview img { max-width: 300px; height: auto; display: block; }

@@ -1,0 +1,5 @@
+/* XXDQ Blocks — editor styles.
+ * Placeholder: all blocks are server-rendered, so no editor-only styling
+ * is needed yet. Keeping the file real (vs. missing) prevents a 404 in
+ * the browser console that was previously breaking the entire Gutenberg
+ * block inserter. Add @import / component styles below as needed. */

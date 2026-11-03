@@ -21,6 +21,33 @@ class XXDQ_Blocks_Registry {
     private function __construct() {
         add_action('init', [$this, 'register_blocks'], 20);
         add_action('enqueue_block_editor_assets', [$this, 'editor_assets']);
+        // Register the custom `xxdq` block category so blocks declared with
+        // `'category' => 'xxdq'` actually show up in the inserter. Without
+        // this, WP silently drops the block from the inserter (or sticks it
+        // in an unused "Uncategorized" group). Filter name is
+        // `block_categories_all` since WP 5.8.
+        add_filter('block_categories_all', [$this, 'register_category'], 10, 1);
+    }
+
+    /**
+     * Inject the `xxdq` category into the Gutenberg inserter. Runs late
+     * so it can appear at the end of the category list — alongside the
+     * built-in "Common" / "Widgets" groups, not buried at the top.
+     */
+    public function register_category($categories) {
+        // Defensive: never add twice (e.g. if some other plugin re-runs
+        // registration during page reload).
+        foreach ((array) $categories as $cat) {
+            if (isset($cat['slug']) && $cat['slug'] === 'xxdq') {
+                return $categories;
+            }
+        }
+        $categories[] = [
+            'slug'  => 'xxdq',
+            'title' => __('XXDQ Blocks', 'xxdq-blocks'),
+            'icon'  => null, // null = default layout icon
+        ];
+        return $categories;
     }
 
     public function register_blocks() {
@@ -40,7 +67,16 @@ class XXDQ_Blocks_Registry {
         $this->reg('category-archive', 'Category Archive', 'dynamic');
         $this->reg('series-accordion', 'Series Accordion', 'dynamic');
         $this->reg('product-detail',   'Product Detail',   'dynamic');
-        $this->reg('selector-tool',    'Selector Tool',    'dynamic');
+        // Selector Tool gets explicit attributes + Chinese keywords so
+        // admins can find it by typing "端子" / "选型" / "计算器" in the
+        // inserter (English "Selector Tool" alone is too generic for a
+        // Chinese-speaking team). The attributes also feed the JS
+        // Inspector panel registered in assets/editor.js.
+        $this->reg('selector-tool',    '端子选型计算器',    'dynamic', [
+            'selectorIntro'      => ['type' => 'string', 'default' => ''],
+            'selectorFormula'    => ['type' => 'string', 'default' => ''],
+            'selectorInquiryUrl' => ['type' => 'string', 'default' => ''],
+        ], ['端子', '选型', '计算器', '端子选型', '冷压端子', '铜鼻子', 'selector', 'terminal', 'recommender']);
         $this->reg('inquiry-form',     'Inquiry Form',     'dynamic');
         $this->reg('pdf-aggregator',   'PDF Aggregator',   'dynamic');
         $this->reg('catalog-hub',      'Catalog Hub',      'dynamic');
@@ -56,9 +92,17 @@ class XXDQ_Blocks_Registry {
         $this->reg('news-section',       'News Section',        'dynamic');
     }
 
-    private function reg($name, $title, $mode) {
+    private function reg($name, $title, $mode, $attributes = [], $keywords = null) {
         $method = 'render_' . str_replace('-', '_', $name);
         $block_name = 'xxdq/' . $name;
+
+        // Default keywords = the legacy `xxdq + mode` pair. Specific
+        // blocks (notably the selector tool) pass extra Chinese / English
+        // search terms so admins can find them in the inserter without
+        // remembering the exact title.
+        $merged_keywords = $keywords !== null
+            ? array_values(array_unique(array_merge(['xxdq', $mode], $keywords)))
+            : ['xxdq', $mode];
 
         register_block_type($block_name, [
             'api_version'     => 2,
@@ -66,8 +110,9 @@ class XXDQ_Blocks_Registry {
             'description'     => sprintf('XXDQ %s block', $title),
             'category'        => 'xxdq',
             'icon'            => $mode === 'dynamic' ? 'update' : 'admin-generic',
-            'keywords'        => ['xxdq', $mode],
+            'keywords'        => $merged_keywords,
             'textdomain'      => 'xxdq',
+            'attributes'      => $attributes,
             'supports'        => [
                 'align'           => false,
                 'anchor'          => true,
@@ -88,7 +133,21 @@ class XXDQ_Blocks_Registry {
 
     public function editor_assets() {
         $url = plugin_dir_url(__FILE__);
-        wp_enqueue_style('xxdq-blocks-editor', $url . '../assets/editor.css', [], '2.0.0');
-        wp_enqueue_script('xxdq-blocks-editor', $url . '../assets/editor.js', ['wp-blocks', 'wp-element', 'wp-editor'], '2.0.0', true);
+        // Modern dependency list: `wp-editor` is deprecated, replaced by
+        // `wp-block-editor`. We also need `wp-components` (for PanelBody /
+        // TextControl), `wp-hooks` (for addFilter), and `wp-i18n` (for __).
+        // Without the new deps, the Inspector panel in editor.js silently
+        // does nothing because every component it imports is undefined.
+        // Bumped to 2.2.0 in case the previous deploy's editor.js was
+        // cached in the user's browser — different ver= query string
+        // forces a fresh fetch.
+        wp_enqueue_style('xxdq-blocks-editor', $url . '../assets/editor.css', [], '2.2.0');
+        wp_enqueue_script(
+            'xxdq-blocks-editor',
+            $url . '../assets/editor.js',
+            ['wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-hooks', 'wp-i18n'],
+            '2.2.0',
+            true
+        );
     }
 }

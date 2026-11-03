@@ -131,11 +131,7 @@ class XXDQ_PIM_Importer {
                 $row['category'], 'product_category'
             );
         }
-        if (!empty($row['series'])) {
-            $tax_input['product_series'] = $this->ensure_terms(
-                $row['series'], 'product_series'
-            );
-        }
+        /* product_series removed: only product_category is assigned on import. */
 
         if ($opts['dry_run']) {
             return $this->row_result(

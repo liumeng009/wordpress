@@ -24,7 +24,6 @@ class XXDQ_PIM_CSV {
             'package'       => ['target' => 'acf', 'key' => 'package'],
             'short_desc'    => ['target' => 'acf', 'key' => 'short_desc'],
             'category'      => ['target' => 'taxonomy:product_category', 'sep' => '|'],
-            'series'        => ['target' => 'taxonomy:product_series',   'sep' => '|'],
             'status'        => ['target' => 'post', 'key' => 'post_status'],
         ];
     }

@@ -137,7 +137,6 @@ class XXDQ_PIM_Admin {
             wp_die('Permission denied');
         }
         $categories = get_terms(['taxonomy' => 'product_category', 'hide_empty' => false]);
-        $series     = get_terms(['taxonomy' => 'product_series',   'hide_empty' => false]);
         ?>
         <div class="wrap xxdq-pim-wrap">
             <h1>Export Product Pack</h1>
@@ -150,23 +149,13 @@ class XXDQ_PIM_Admin {
                     <tr>
                         <th>分类筛选</th>
                         <td>
-                            <select name="category[]" multiple size="4" style="min-width:240px">
+                            <select name="category[]" multiple size="8" style="min-width:320px">
                                 <option value="">— 全部 —</option>
                                 <?php foreach ($categories as $c): ?>
                                     <option value="<?= esc_attr($c->term_id) ?>"><?= esc_html($c->name) ?> (<?= $c->count ?>)</option>
                                 <?php endforeach; ?>
                             </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>系列筛选</th>
-                        <td>
-                            <select name="series[]" multiple size="6" style="min-width:240px">
-                                <option value="">— 全部 —</option>
-                                <?php foreach ($series as $s): ?>
-                                    <option value="<?= esc_attr($s->term_id) ?>"><?= esc_html($s->name) ?> (<?= $s->count ?>)</option>
-                                <?php endforeach; ?>
-                            </select>
+                            <p class="description">支持选择二级子分类精确筛选。</p>
                         </td>
                     </tr>
                     <tr>

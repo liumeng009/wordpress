@@ -454,4 +454,141 @@ function xxdq_register_options_fields() {
         ],
         'menu_order' => 7,
     ]);
+
+    /* ── 9. SEO / Schema organization fields ─────────────────── */
+    /*
+     * 与 20-schema.php 字段名一一对应 (company_*)。如果这里为空,
+     * schema 会回退到 group_xxdq_company_info 里的 address/phone/email/work_hours。
+     */
+    acf_add_local_field_group([
+        'key'      => 'group_xxdq_seo_org',
+        'title'    => 'SEO / Schema 公司信息',
+        'fields'   => [
+            [
+                'key'   => 'field_xxdq_company_phone',
+                'label' => '联系电话 (含国际区号, +86-...)',
+                'name'  => 'company_phone',
+                'type'  => 'text',
+                'instructions' => 'JSON-LD 的 Organization.telephone / LocalBusiness.telephone',
+            ],
+            [
+                'key'   => 'field_xxdq_company_email',
+                'label' => '公司邮箱',
+                'name'  => 'company_email',
+                'type'  => 'email',
+                'instructions' => 'JSON-LD 的 Organization.email',
+            ],
+            [
+                'key'   => 'field_xxdq_company_address',
+                'label' => '公司地址',
+                'name'  => 'company_address',
+                'type'  => 'text',
+                'instructions' => 'JSON-LD 的 PostalAddress.streetAddress',
+            ],
+            [
+                'key'   => 'field_xxdq_company_hours',
+                'label' => '营业时间',
+                'name'  => 'company_hours',
+                'type'  => 'text',
+                'default_value' => '周一至周六 8:30-17:30',
+                'instructions' => 'JSON-LD 的 OpeningHoursSpecification.opens/closes',
+            ],
+            [
+                'key'   => 'field_xxdq_company_logo',
+                'label' => '公司 Logo',
+                'name'  => 'company_logo',
+                'type'  => 'image',
+                'return_format' => 'url',
+                'preview_size' => 'medium',
+                'instructions' => 'Organization.schema.org/logo, 推荐方形或横向 PNG/SVG。',
+            ],
+            [
+                'key'   => 'field_xxdq_default_og_image',
+                'label' => '默认 OG/Twitter 分享图 (1200×630)',
+                'name'  => 'default_og_image',
+                'type'  => 'image',
+                'return_format' => 'url',
+                'preview_size' => 'medium',
+                'instructions' => '没有特色图时使用。建议 1200×630 JPG/PNG。',
+            ],
+        ],
+        'location' => [
+            [
+                [
+                    'param'    => 'options_page',
+                    'operator' => '==',
+                    'value'    => 'xxdq-site-settings',
+                ],
+            ],
+        ],
+        'menu_order' => 8,
+    ]);
+
+    /* ── 10. Selector Tool (terminal recommender) SEO content ──
+     * Per-page field group. SEO文案 (intro / formula / FAQs / 询价链接)
+     * 在使用 selector-tool 区块的页面后台可编辑；不填则前端用代码内嵌的默认值。 */
+    acf_add_local_field_group([
+        'key'      => 'group_xxdq_selector_tool',
+        'title'    => '端子选型工具 (SEO 文案)',
+        'fields'   => [
+            [
+                'key'   => 'field_xxdq_selector_intro',
+                'label' => '使用说明',
+                'name'  => 'selector_intro',
+                'type'  => 'wysiwyg',
+                'media_upload' => 0,
+                'rows'  => 6,
+                'instructions' => '显示在工具下方的介绍段（HTML 可用）。为空时使用代码内嵌的默认文案。',
+            ],
+            [
+                'key'   => 'field_xxdq_selector_formula',
+                'label' => '计算公式',
+                'name'  => 'selector_formula',
+                'type'  => 'text',
+                'instructions' => '一行等式，会以等宽字体显示。',
+            ],
+            [
+                'key'   => 'field_xxdq_selector_faqs',
+                'label' => '常见问题 (FAQ)',
+                'name'  => 'selector_faqs',
+                'type'  => 'repeater',
+                'min'   => 0,
+                'max'   => 20,
+                'layout'  => 'row',
+                'button_label' => '添加一条 FAQ',
+                'sub_fields' => [
+                    [
+                        'key'   => 'field_xxdq_selector_faq_q',
+                        'label' => '问题',
+                        'name'  => 'q',
+                        'type'  => 'text',
+                    ],
+                    [
+                        'key'   => 'field_xxdq_selector_faq_a',
+                        'label' => '答案',
+                        'name'  => 'a',
+                        'type'  => 'textarea',
+                        'rows'  => 3,
+                    ],
+                ],
+            ],
+            [
+                'key'   => 'field_xxdq_selector_inquiry_url',
+                'label' => '询价页 URL',
+                'name'  => 'selector_inquiry_url',
+                'type'  => 'url',
+                'instructions' => '「立即询价」按钮的跳转目标。带 ?model=xxx 参数，会被询价表单自动预填产品型号。',
+            ],
+        ],
+        'location' => [
+            [
+                [
+                    'param'    => 'post_type',
+                    'operator' => '==',
+                    'value'    => 'page',
+                ],
+            ],
+        ],
+        'menu_order' => 0,
+    ]);
 }

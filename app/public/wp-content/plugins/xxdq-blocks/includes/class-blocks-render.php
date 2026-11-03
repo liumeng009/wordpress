@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Block render callbacks as static methods.
  * Called by XXDQ_Blocks_Registry::reg().
@@ -20,9 +20,121 @@ class XXDQ_Blocks_Render {
 
     /** Helper: get field value from attrs or post meta */
     public static function val($key, $post_id = 0, $default = '') {
-        if (isset(self::$current_attrs[$key])) return self::$current_attrs[$key];
+        if (isset(self::$current_attrs[$key])) {
+            return self::normalize_cta_url($key, self::$current_attrs[$key]);
+        }
         $post_id = $post_id ?: get_the_ID();
-        return get_post_meta($post_id, $key, true) ?: $default;
+        $value   = get_post_meta($post_id, $key, true);
+        if ($value) {
+            return self::normalize_cta_url($key, $value);
+        }
+        return $default;
+    }
+
+    /**
+     * Three-tier SEO value resolver used by the Selector Tool:
+     *   1. Block attribute (Inspector-driven, per-block, lives in post_content)
+     *   2. ACF field on the page (post meta, attached via
+     *      group_xxdq_selector_tool)
+     *   3. Code default (hardcoded fallback so a fresh install still
+     *      renders sensible Chinese copy)
+     *
+     * An empty string from either tier is treated as "not set" and
+     * falls through to the next tier. This lets an admin explicitly
+     * clear an inherited value (e.g. by emptying the Inspector field
+     * and then emptying the ACF field) and still get a readable page
+     * via the code default.
+     */
+    private static function resolve_seo_value($attr_key, $acf_key, $page_id, $default) {
+        // Tier 1: block attribute. Only trust non-empty strings — an
+        // empty Inspector field should NOT shadow a valid ACF value.
+        if (isset(self::$current_attrs[$attr_key])) {
+            $v = (string) self::$current_attrs[$attr_key];
+            if ($v !== '') {
+                return $v;
+            }
+        }
+        // Tier 2: ACF. get_field returns null when the field has no
+        // value on the post, which we also treat as "not set".
+        if (function_exists('get_field')) {
+            $v = get_field($acf_key, $page_id);
+            if ($v !== null && $v !== false && $v !== '') {
+                return (string) $v;
+            }
+        }
+        // Tier 3: code default.
+        return $default;
+    }
+
+    /**
+     * Defensive rewrite: if a stored CTA URL points to one of the
+     * stale inquiry-page targets that older versions of this plugin
+     * hardcoded (`/询价单/`, `/inquiry/`, `/index.php/…`), replace it
+     * with `inquiry_url()` so every button on the page agrees on the
+     * same target.
+     *
+     * Without this, a block attribute like `hero_cta_url="/询价单/"`
+     * stored inside `post_content` would shadow the PHP default and
+     * produce an inconsistent (and possibly 404) URL on the live site,
+     * even after the code change below.
+     *
+     * Only rewrites CTA-shaped keys (cta_url / button_url / cta-link).
+     * Secondary CTAs that point elsewhere are left alone.
+     */
+    private static function normalize_cta_url($key, $value) {
+        if (!is_string($value) || $value === '') return $value;
+        $is_cta_field = (stripos($key, 'cta_url') !== false)
+                     || (stripos($key, 'button_url') !== false)
+                     || (stripos($key, 'cta-link') !== false)
+                     || (stripos($key, 'cta_link') !== false);
+        if (!$is_cta_field) return $value;
+
+        $stale_prefixes = ['/询价单/', '/inquiry/', '/index.php/询价单/', '/index.php/inquiry/'];
+        $is_stale = false;
+        foreach ($stale_prefixes as $needle) {
+            if ($value === $needle
+                || strpos($value, $needle) !== false
+                || strpos($value, urlencode('询价单')) !== false) {
+                $is_stale = true;
+                break;
+            }
+        }
+        // Also rewrite fully-qualified (http(s)://…) variants that point
+        // to the same target — the user's nav button on the live site
+        // is one of these (e.g. https://dzldz.cn/inquiry/).
+        if (!$is_stale) {
+            foreach ($stale_prefixes as $needle) {
+                if (strpos($value, $needle) !== false) { $is_stale = true; break; }
+            }
+        }
+        return $is_stale ? self::inquiry_url() : $value;
+    }
+
+    /**
+     * Canonical URL for the "询价单" (Inquiry / RFQ) page.
+     *
+     * Single source of truth for every CTA on the site. Returns
+     * `get_permalink(17)` (page 17 is the published inquiry page in
+     * wp_posts) when that page exists, otherwise falls back to
+     * `home_url('/询价单/')` so the URL still works after a fresh import
+     * where page numbering may shift.
+     *
+     * Centralising this here means the homepage nav, hero, hero-slider,
+     * CTA block, and any future CTA block all point at the SAME URL —
+     * no more 404 from `…/inquiry/` and no more non-URL-encoded raw
+     * Chinese slug slipping into href attributes.
+     */
+    public static function inquiry_url() {
+        /* Language-aware: on the English site this must resolve to
+         * /en/inquiry/, not the Chinese /inquiry/ page. */
+        if (function_exists('xxdq_inquiry_url')) {
+            return xxdq_inquiry_url();
+        }
+        $url = get_permalink(17);
+        if (!$url || (is_string($url) && $url === '')) {
+            $url = home_url('/询价单/');
+        }
+        return $url;
     }
 
     /**
@@ -47,7 +159,7 @@ class XXDQ_Blocks_Render {
                 $url = wp_get_attachment_image_url($fid, 'medium', false);
             }
         }
-        if (empty($url)) return '<span class="xxdq-product-card__noimg">无图</span>';
+        if (empty($url)) return '<span class="xxdq-product-card__noimg">' . ((function_exists('xxdq_is_en') && xxdq_is_en()) ? 'No image' : '无图') . '</span>';
         return sprintf(
             '<img src="%s" alt="%s" loading="lazy" />',
             esc_url($url),
@@ -82,11 +194,31 @@ class XXDQ_Blocks_Render {
 
     /* ── HERO ─────────────────────────────────────────────── */
     public static function render_hero($block, $content = '', $is_preview = false, $post_id = 0) {
-        $eyebrow = self::val('hero_eyebrow', $post_id, '源头工厂 · 全产业链 · 现货直发');
-        $subtitle = self::val('hero_subtitle', $post_id, '铜鼻子 · 冷压端子 · 预绝缘端子 · 接插件 · 500+ 规格 · CE/RoHS/ISO9001 认证 · 24小时出货');
-        $cta_text = self::val('hero_cta_text', $post_id, '立即询价');
-        $cta_url  = self::val('hero_cta_url', $post_id, '/询价单/');
-        $sec_cta_text = self::val('hero_secondary_cta_text', $post_id, '浏览产品');
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        /* The catalogue size is computed from the database rather than
+         * hardcoded, so the marketing copy can never drift away from the
+         * real catalogue. */
+        $cat_count = function_exists('xxdq_catalogue_kw') ? xxdq_catalogue_kw() : '300';
+        $defaults = $is_en ? [
+            'eyebrow' => 'Direct Manufacturer · Full Supply Chain · Ready to Ship',
+            'subtitle'=> 'Copper Lug · Crimp Terminal · Pre-insulated Terminal · Connector — ' . $cat_count . '+ Models · CE/RoHS Certified · Ships in 24 Hours',
+            'cta'     => 'Get a Quote',
+            'sec_cta' => 'Browse Products',
+        ] : [
+            'eyebrow' => '源头工厂 · 全产业链 · 现货直发',
+            'subtitle'=> '铜鼻子 · 冷压端子 · 预绝缘端子 · 接插件 · ' . $cat_count . '+ 规格 · CE/RoHS/ISO9001 认证 · 24小时出货',
+            'cta'     => '立即询价',
+            'sec_cta' => '浏览产品',
+        ];
+        $eyebrow = self::val('hero_eyebrow', $post_id, $defaults['eyebrow']);
+        $subtitle = self::val('hero_subtitle', $post_id, $defaults['subtitle']);
+        $cta_text = self::val('hero_cta_text', $post_id, $defaults['cta']);
+        // Default the hero CTA to the canonical inquiry page URL — NOT
+        // a hardcoded `/询价单/`. The old default caused the homepage
+        // CTA to drift out of sync with the nav's "立即询价" button and
+        // left a non-URL-encoded Chinese slug in the href.
+        $cta_url  = self::val('hero_cta_url', $post_id, self::inquiry_url());
+        $sec_cta_text = self::val('hero_secondary_cta_text', $post_id, $defaults['sec_cta']);
         $sec_cta_url  = self::val('hero_secondary_cta_url', $post_id, get_post_type_archive_link('product') ?: '/product/');
         $style = self::val('hero_style', $post_id, 'industrial-dark');
 
@@ -106,6 +238,21 @@ class XXDQ_Blocks_Render {
             $actions .= sprintf('<a href="%s" class="xxdq-hero__btn xxdq-hero__btn--secondary">%s</a>',
                 esc_url($sec_cta_url), esc_html($sec_cta_text));
 
+        /* The H1 carries the brand + the product-category descriptor, the
+         * same way the Chinese hero does:
+         *   ZH  乐清市耕文电气有限公司 – 电气连接件源头工厂
+         *   EN  Gengwen Electric – Electrical Connector Manufacturer
+         * `get_bloginfo('name')` alone would render a bare "Gengwen
+         * Electric", which is too thin for an H1 and loses the
+         * "electrical connector manufacturer" keyword. */
+        $hero_title = get_bloginfo('name');
+        if ($is_en) {
+            $tagline = function_exists('xxdq_t') ? xxdq_t('brand.tagline') : '';
+            if ($tagline !== '' && stripos($hero_title, $tagline) === false) {
+                $hero_title .= ' – ' . $tagline;
+            }
+        }
+
         return sprintf('<section class="xxdq-hero xxdq-hero--%s">
   <div class="xxdq-hero__inner">
     %s
@@ -116,7 +263,7 @@ class XXDQ_Blocks_Render {
 </section>',
             esc_html($style),
             $eyebrow ? '<p class="xxdq-hero__eyebrow">'.esc_html($eyebrow).'</p>' : '',
-            esc_html(get_bloginfo('name')),
+            esc_html($hero_title),
             esc_html($subtitle),
             $actions
         );
@@ -124,8 +271,17 @@ class XXDQ_Blocks_Render {
 
     /* ── STATS BAR ─────────────────────────────────────────── */
     public static function render_stats_bar($block, $content = '', $is_preview = false, $post_id = 0) {
-        $items = [
-            ['value' => '500+', 'label' => '产品规格'],
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        /* Computed from the database — the old hardcoded "500+" did not
+         * match the real catalogue. */
+        $cat_count = function_exists('xxdq_catalogue_kw') ? xxdq_catalogue_kw() : '300';
+        $items = $is_en ? [
+            ['value' => $cat_count . '+', 'label' => 'Product Models'],
+            ['value' => 'CE/RoHS', 'label' => 'Certified'],
+            ['value' => '24h', 'label' => 'Fast Dispatch'],
+            ['value' => '10+ yrs', 'label' => 'Industry Experience'],
+        ] : [
+            ['value' => $cat_count . '+', 'label' => '产品规格'],
             ['value' => 'CE/RoHS', 'label' => '认证保障'],
             ['value' => '24h', 'label' => '快速出货'],
             ['value' => '10年+', 'label' => '行业经验'],
@@ -146,12 +302,22 @@ class XXDQ_Blocks_Render {
         // Pull categories dynamically from the product_category taxonomy so the
         // homepage grid stays in sync with the sidebar on /product/. The desc
         // is stored as the category description in WP admin.
+        //
+        // parent=0 ⇒ only top-level (产品中心入口) cards. Sub-categories live
+        // under their parent on the archive page, so the homepage stays a
+        // clean grid of product families instead of a 90-card wall.
         $cats = get_terms([
             'taxonomy'   => 'product_category',
+            'parent'     => 0,
             'hide_empty' => false,
             'orderby'    => 'menu_order',
             'order'      => 'ASC',
         ]);
+        /* Keep only the categories of the current language — the English
+         * site keeps a parallel set of terms. */
+        if (function_exists('xxdq_filter_terms_by_lang')) {
+            $cats = xxdq_filter_terms_by_lang($cats);
+        }
         if (is_wp_error($cats) || empty($cats)) {
             // Fallback for first install before categories exist.
             $cats = [
@@ -171,26 +337,124 @@ class XXDQ_Blocks_Render {
         // category in particular uses a network-switch photo (red
         // Ethernet cables plugged into a switch) — semantically a much
         // better fit for "接插件" than the previous meeting-room shot.
+        //
+        // Keys MUST match the real term slugs. The original keys
+        // ('copper', 'cold', 'preinsulated', 'connector') were written
+        // before the product was imported with English-hyphenated slugs
+        // ('cold-pressed-terminal', 'pre-insulated-terminals',
+        // 'connectors', …). The mismatch meant every category except
+        // 'copper' silently fell back to the placeholder, which is why
+        // the homepage grid looked stale no matter what was uploaded.
+        //
+        // Each entry picks a representative terminal screenshot from
+        // uploads/2026/09/ so every card visually matches its family:
+        //   - bare (DBN)            片形裸端头  → bare-terminals
+        //   - SV 叉形预绝缘端头     → pre-insulated-connectors
+        //   - MDD 公预绝缘端头      → pre-insulated-nylon-connectors
+        //   - RV 圆形预绝缘端头     → pre-insulated-terminals
+        //   - VE 管型 / 双线         → pre-insulated-nylon
+        //   - DT / SC 铜管端子       → copper-tube-terminals
+        //   - 中间接头              → intermediate-connectors
+        //   - 绝缘软管套            → insulation-sleeves
         $img_map = [
-            'copper'       => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_201200_204-300x225.png',
-            'cold'         => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_194852_420-300x258.png',
-            'preinsulated' => '/wp-content/uploads/2026/09/管型.jpg',
-            'connector'    => '/wp-content/uploads/2026/09/cat-connector.jpg',
+            'copper'                       => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_201200_204-300x225.png',
+            'cold-pressed-terminal'        => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_194852_420-300x258.png',
+            'bare-terminals'               => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_195435_132-300x240.png',
+            'copper-tube-terminals'         => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_195235_027-300x291.png',
+            'pre-insulated-terminals'      => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_201945_638-297x300.png',
+            'pre-insulated-nylon'          => '/wp-content/uploads/2026/09/tube-type-pre-insulated-terminal.jpg',
+            'pre-insulated-connectors'     => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_202406_077-281x300.png',
+            'pre-insulated-nylon-connectors'=> '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_200811_413-300x293.png',
+            'intermediate-connectors'      => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_201442_757-300x285.png',
+            'connectors'                   => '/wp-content/uploads/2026/09/cat-connector.jpg',
+            'insulation-sleeves'           => '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_202627_333-300x264.png',
         ];
         $fallback_img = '/wp-content/uploads/2026/09/ScreenShot_2026-09-24_202135_542-283x300.png';
 
+        // Build a prefix-keyed fallback so a slug rename in a future
+        // import (e.g. 'copper-tube-terminals' → 'tube-terminals') still
+        // resolves to a sensible image instead of the bare fallback.
+        // Order matters — longest match wins.
+        $prefix_map = [
+            'copper-tube-terminals'         => 'copper-tube-terminals',
+            'copper'                        => 'copper',
+            'cold-pressed-terminal'         => 'cold-pressed-terminal',
+            'bare-terminals'                => 'bare-terminals',
+            'pre-insulated-nylon-connectors'=> 'pre-insulated-nylon-connectors',
+            'pre-insulated-nylon'           => 'pre-insulated-nylon',
+            'pre-insulated-connectors'      => 'pre-insulated-connectors',
+            'pre-insulated-terminals'       => 'pre-insulated-terminals',
+            'intermediate-connectors'       => 'intermediate-connectors',
+            'connectors'                    => 'connectors',
+            'insulation-sleeves'            => 'insulation-sleeves',
+        ];
 
-        $html = sprintf('<div class="xxdq-category-grid xxdq-category-grid--%s">', esc_attr($style));
+        // Helper: resolve an image URL for any slug. Used by the closure
+        // below so the prefix fallback is also available there.
+        //
+        // Order of preference (added by Phase 9.5):
+        //   1. term meta `cover_image_id` (set per-category in WP admin)
+        //   2. hardcoded $img_map
+        //   3. prefix-based $prefix_map
+        //   4. generic "pre-*" family default
+        //   5. fallback placeholder
+        $resolve_img = function ($cat) use ($img_map, $fallback_img, $prefix_map) {
+            return XXDQ_Blocks_Term_Meta::resolve_cover_image($cat, $img_map, $prefix_map, $fallback_img);
+        };
+
+
+        // 首页按业务分组展示 11 张一级分类卡片,而非平铺一整块大网格,
+        // 让访客一眼看出"端子 / 接头 / 绝缘防护"三大产品族。
+        //
+        // The group is defined by the CHINESE term IDs; on the English
+        // site each one is translated to its English counterpart via
+        // the `xxdq_en_term_id` term meta. Hard-coding the English IDs
+        // would break the moment a category is re-imported, because the
+        // English term IDs are allocated sequentially by the importer.
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        $group_map = $is_en ? [
+            'Cable Terminals'    => [4, 5, 43, 72, 29, 36],
+            'Splice & Connector' => [53, 60, 66, 78],
+            'Insulation'         => [82],
+        ] : [
+            '端子系列 · Cable Terminals'    => [4, 5, 43, 72, 29, 36],
+            '接头系列 · Splice & Connector' => [53, 60, 66, 78],
+            '绝缘防护 · Insulation'         => [82],
+        ];
+
+        // 把 $cats 按 term_id 索引,方便按指定顺序取。
+        $cats_by_id = [];
         foreach ($cats as $cat) {
-            $link = is_object($cat) && isset($cat->term_id)
-                ? get_term_link($cat)
-                : ('/' . rawurlencode($cat->slug) . '/');
-            if (is_wp_error($link)) { continue; }
-            $name = is_object($cat) ? $cat->name : $cat['name'];
-            $desc = is_object($cat) ? $cat->description : ($cat['description'] ?? '');
-            $slug = is_object($cat) ? $cat->slug : $cat['slug'];
-            $img  = $img_map[$slug] ?? $fallback_img;
-            $html .= sprintf(
+            $cats_by_id[(int) $cat->term_id] = $cat;
+        }
+
+        /* On the English site the grouped IDs are the Chinese ones, so
+         * they have to be swapped for the English terms. */
+        if ($is_en) {
+            foreach ($group_map as $group_title => $zh_ids) {
+                $en_ids = [];
+                foreach ($zh_ids as $zh_id) {
+                    $en_id = class_exists('XXDQ_I18n_Content')
+                        ? XXDQ_I18n_Content::get_en_term_id($zh_id)
+                        : 0;
+                    if ($en_id && isset($cats_by_id[$en_id])) {
+                        $en_ids[] = $en_id;
+                    }
+                }
+                $group_map[$group_title] = $en_ids;
+            }
+        }
+
+        $render_card = function ($cat) use ($resolve_img) {
+            $link = get_term_link($cat);
+            if (is_wp_error($link)) return '';
+            $full_desc = $cat->description;
+            $stripped  = trim(wp_strip_all_tags($full_desc));
+            $desc      = mb_strlen($stripped, 'utf-8') > 60
+                ? mb_substr($stripped, 0, 60, 'utf-8') . '…'
+                : $stripped;
+            $img = $resolve_img($cat);
+            return sprintf(
                 '<a class="xxdq-category-card" href="%s">
   <div class="xxdq-category-card__media"><img src="%s" alt="%s" loading="lazy" /></div>
   <div class="xxdq-category-card__body">
@@ -201,10 +465,31 @@ class XXDQ_Blocks_Render {
 </a>',
                 esc_url($link),
                 esc_url($img),
-                esc_attr($name),
-                esc_html($name),
+                esc_attr($cat->name),
+                esc_html($cat->name),
                 esc_html($desc)
             );
+        };
+
+        $html = '<div class="xxdq-category-grid-wrap">';
+        foreach ($group_map as $group_title => $group_ids) {
+            $html .= '<section class="xxdq-category-group">';
+            $html .= '<h3 class="xxdq-category-group__title">' . esc_html($group_title) . '</h3>';
+            $html .= '<div class="xxdq-category-grid xxdq-category-grid--grouped">';
+            $rendered_in_group = 0;
+            foreach ($group_ids as $tid) {
+                if (!isset($cats_by_id[$tid])) continue;
+                $card = $render_card($cats_by_id[$tid]);
+                if ($card === '') continue;
+                $html .= $card;
+                $rendered_in_group++;
+            }
+            // 不够 4 张时补占位,保持每行 4 张的视觉节奏(最后一行不满时左对齐)
+            $spacer_count = $rendered_in_group > 0 ? (4 - ($rendered_in_group % 4)) % 4 : 0;
+            for ($i = 0; $i < $spacer_count; $i++) {
+                $html .= '<div class="xxdq-category-card xxdq-category-card--spacer" aria-hidden="true"></div>';
+            }
+            $html .= '</div></section>';
         }
         $html .= '</div>';
         return $html;
@@ -212,9 +497,15 @@ class XXDQ_Blocks_Render {
 
     /* ── HOT PRODUCTS ────────────────────────────────────────── */
     public static function render_hot_products($block, $content = '', $is_preview = false, $post_id = 0) {
-        $q = new WP_Query(['post_type' => 'product', 'posts_per_page' => 8, 'post_status' => 'publish', 'orderby' => 'rand']);
-        if (!$q->have_posts()) return '<p class="xxdq-empty">暂无产品。</p>';
-        $html = '<div class="xxdq-hot-products"><h2 class="xxdq-section-title">热门产品</h2><div class="xxdq-product-grid">';
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        $q = new WP_Query([
+            'post_type' => 'product', 'posts_per_page' => 8, 'post_status' => 'publish', 'orderby' => 'rand',
+            'meta_query' => $is_en
+                ? [['key' => '_xxdq_lang', 'value' => 'en_US']]
+                : [['key' => '_xxdq_lang', 'compare' => 'NOT EXISTS']],
+        ]);
+        if (!$q->have_posts()) return '<p class="xxdq-empty">' . ($is_en ? 'No products found.' : '暂无产品。') . '</p>';
+        $html = '<div class="xxdq-hot-products"><h2 class="xxdq-section-title">' . ($is_en ? 'Popular Products' : '热门产品') . '</h2><div class="xxdq-product-grid">';
         while ($q->have_posts()) { $q->the_post();
             $img = self::product_thumb(get_the_ID());
             $html .= sprintf('<a class="xxdq-product-card" href="%s">%s<h3>%s</h3></a>',
@@ -226,8 +517,11 @@ class XXDQ_Blocks_Render {
 
     /* ── PROCESS STEPS ──────────────────────────────────────── */
     public static function render_process_steps($block, $content = '', $is_preview = false, $post_id = 0) {
-        $steps = ['需求确认','选型指导','报价打样','批量生产','质检出货'];
-        $html = '<div class="xxdq-process-steps"><h2 class="xxdq-section-title">合作流程</h2><ol class="xxdq-process-steps__list">';
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        $steps = $is_en
+            ? ['Requirement Review', 'Model Selection', 'Quotation & Sample', 'Bulk Production', 'Inspection & Shipment']
+            : ['需求确认','选型指导','报价打样','批量生产','质检出货'];
+        $html = '<div class="xxdq-process-steps"><h2 class="xxdq-section-title">' . ($is_en ? 'How We Work' : '合作流程') . '</h2><ol class="xxdq-process-steps__list">';
         foreach ($steps as $i => $s)
             $html .= sprintf('<li class="xxdq-process-steps__item"><span class="xxdq-process-steps__num">%d</span><span class="xxdq-process-steps__label">%s</span></li>', $i+1, esc_html($s));
         return $html . '</ol></div>';
@@ -236,9 +530,18 @@ class XXDQ_Blocks_Render {
     /* ── WHY US ─────────────────────────────────────────────── */
     public static function render_why_us($block, $content = '', $is_preview = false, $post_id = 0) {
         // Phase 9: prefer ACF Options Page data; fall back to defaults.
-        $default_items = [
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        /* The stock claim is computed from the database — see
+         * xxdq_catalogue_stats(). */
+        $cat_count = function_exists('xxdq_catalogue_kw') ? xxdq_catalogue_kw() : '300';
+        $default_items = $is_en ? [
+            ['icon' => '🏭', 'title' => 'Direct Manufacturer', 'desc' => 'In-house factory, controlled cost, stable quality'],
+            ['icon' => '📦', 'title' => 'Large Stock', 'desc' => $cat_count . '+ models in stock, dispatched within 24 hours'],
+            ['icon' => '✅', 'title' => 'Certified Quality', 'desc' => 'CE / RoHS / ISO9001 certified, export-grade'],
+            ['icon' => '🔧', 'title' => 'Flexible Customisation', 'desc' => 'Custom parts supported, small batches welcome'],
+        ] : [
             ['icon' => '🏭', 'title' => '源头工厂', 'desc' => '自有工厂,成本可控,品质稳定'],
-            ['icon' => '📦', 'title' => '海量库存', 'desc' => '500+ 规格现货,24小时快速出货'],
+            ['icon' => '📦', 'title' => '海量库存', 'desc' => $cat_count . '+ 规格现货,24小时快速出货'],
             ['icon' => '✅', 'title' => '权威认证', 'desc' => 'CE/RoHS/ISO9001 认证,出口品质'],
             ['icon' => '🔧', 'title' => '定制灵活', 'desc' => '支持非标定制,小批量也欢迎'],
         ];
@@ -248,15 +551,25 @@ class XXDQ_Blocks_Render {
             if (is_array($acf_items) && !empty($acf_items)) {
                 $items = [];
                 foreach ($acf_items as $row) {
+                    $title = isset($row['title'])      ? (string) $row['title']      : '';
+                    $desc  = isset($row['description'])? (string) $row['description']: '';
+                    /* The ACF options page is shared with the Chinese site, so
+                     * its rows may still contain Chinese copy. On English
+                     * pages fall back to the English defaults instead of
+                     * leaking Chinese text. */
+                    if ($is_en && preg_match('/[\x{4e00}-\x{9fff}]/u', $title . $desc)) {
+                        $items = $default_items;
+                        break;
+                    }
                     $items[] = [
                         'icon' => isset($row['icon'])        ? (string) $row['icon']        : '',
-                        'title' => isset($row['title'])      ? (string) $row['title']      : '',
-                        'desc'  => isset($row['description'])? (string) $row['description']: '',
+                        'title' => $title,
+                        'desc'  => $desc,
                     ];
                 }
             }
         }
-        $html = '<div class="xxdq-why-us"><h2 class="xxdq-section-title">为什么选择我们</h2><div class="xxdq-why-us__grid">';
+        $html = '<div class="xxdq-why-us"><h2 class="xxdq-section-title">' . ($is_en ? 'Why Choose Us' : '为什么选择我们') . '</h2><div class="xxdq-why-us__grid">';
         foreach ($items as $it)
             $html .= sprintf('<div class="xxdq-why-us__item"><div class="xxdq-why-us__icon">%s</div><h3>%s</h3><p>%s</p></div>',
                 esc_html($it['icon']), esc_html($it['title']), esc_html($it['desc']));
@@ -265,20 +578,29 @@ class XXDQ_Blocks_Render {
 
     /* ── CTA ────────────────────────────────────────────────── */
     public static function render_cta($block, $content = '', $is_preview = false, $post_id = 0) {
-        return '<div class="xxdq-cta">
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        if ($is_en) {
+            return sprintf('<div class="xxdq-cta">
+  <h2>Need a quotation or technical support?</h2>
+  <p>Contact us — we reply within 1 hour</p>
+  <a href="%s" class="xxdq-cta__btn">Get a Quote →</a>
+</div>', esc_url(self::inquiry_url()));
+        }
+        return sprintf('<div class="xxdq-cta">
   <h2>需要报价或技术支持?</h2>
   <p>联系我们,1小时内响应您的需求</p>
-  <a href="/询价单/" class="xxdq-cta__btn">立即询价 →</a>
-</div>';
+  <a href="%s" class="xxdq-cta__btn">立即询价 →</a>
+</div>', esc_url(self::inquiry_url()));
     }
 
     /* ── CATEGORY ARCHIVE ──────────────────────────────────── */
     public static function render_category_archive($block, $content = '', $is_preview = false, $post_id = 0) {
         $cat_id = (int)self::val('ca_category', $post_id, 0);
         $page = $cat_id ? get_post($cat_id) : null;
-        $title = $page ? $page->post_title : '产品列表';
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        $title = $page ? $page->post_title : ($is_en ? 'Product List' : '产品列表');
         $q = new WP_Query(['post_type' => 'product', 'posts_per_page' => -1, 'post_status' => 'publish']);
-        if (!$q->have_posts()) return '<p class="xxdq-empty">此分类暂无产品。</p>';
+        if (!$q->have_posts()) return '<p class="xxdq-empty">' . ($is_en ? 'No products in this category.' : '此分类暂无产品。') . '</p>';
         $html = sprintf('<div class="xxdq-category-archive"><h2 class="xxdq-section-title">%s</h2><div class="xxdq-product-grid">', esc_html($title));
         while ($q->have_posts()) { $q->the_post();
             $img = self::product_thumb(get_the_ID());
@@ -291,11 +613,650 @@ class XXDQ_Blocks_Render {
 
     /* ── SELECTOR TOOL ─────────────────────────────────────── */
     public static function render_selector_tool($block, $content = '', $is_preview = false, $post_id = 0) {
-        return '<div class="xxdq-selector-tool">
-  <h2>产品选型工具</h2>
-  <p>根据您的线径、孔径等参数,快速匹配适合的端子型号。</p>
-  <a href="/news/" class="xxdq-cta__btn">查看新闻中心 →</a>
-</div>';
+        // Enqueue self-contained assets (only when this block is on the page).
+        wp_enqueue_style(
+            'xxdq-selector-tool',
+            XXDQ_BLOCKS_URL . 'assets/selector-tool.css',
+            [],
+            XXDQ_BLOCKS_VERSION
+        );
+        wp_enqueue_script(
+            'xxdq-selector-tool',
+            XXDQ_BLOCKS_URL . 'assets/selector-tool.js',
+            [],
+            XXDQ_BLOCKS_VERSION,
+            true
+        );
+
+        // SEO content resolution priority:
+        //   1. Block attributes (set via the JS Inspector panel — the
+        //      per-block source of truth for admins editing in the page
+        //      editor, lives in post_content as Gutenberg block markup).
+        //   2. ACF fields on the page (group_xxdq_selector_tool, attached
+        //      to post_type=page) — backward-compatible with pages
+        //      authored before the Inspector existed.
+        //   3. Code defaults — the original inline Chinese copy that
+        //      ships with the block, used as a last-resort safety net so
+        //      the page still renders sensible content if both ACF and
+        //      attributes are empty.
+        //
+        // FAQ is intentionally NOT pulled from block attributes — the
+        //       repeater UI would require a full custom Inspector that
+        //       is overkill for a 5-item list. Admins keep using the
+        //       ACF field group for FAQ editing.
+        $page_id = $post_id ?: get_the_ID();
+
+        /* The English site must not read the Chinese ACF copy, so the
+         * language is resolved first and the English strings are used
+         * unconditionally. */
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        $t     = self::selector_strings($is_en);
+
+        if ($is_en) {
+            $seo_intro   = $t['seo_intro'];
+            $seo_formula = $t['seo_formula_body'];
+        } else {
+            $seo_intro  = self::resolve_seo_value(
+                'selectorIntro', 'selector_intro', $page_id,
+                $t['seo_intro']
+            );
+            $seo_formula = self::resolve_seo_value(
+                'selectorFormula', 'selector_formula', $page_id,
+                $t['seo_formula_body']
+            );
+        }
+        $inquiry_url = self::resolve_seo_value(
+            'selectorInquiryUrl', 'selector_inquiry_url', $page_id,
+            self::inquiry_url()
+        );
+
+        // Build a model → product-URL map so the JS can decide whether to
+        // render the "查看该型号产品" button without making a REST call.
+        // We keep it inline as a data-* attribute because:
+        //  - the page is server-rendered (no cache layer to flush),
+        //  - the map is small (≤ ~50 models active per page load),
+        //  - it avoids a roundtrip from the user clicking "calculate".
+        $product_map = [];
+        $pq = new \WP_Query([
+            'post_type'      => 'product',
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'no_found_rows'  => true,
+            'fields'         => 'ids',
+        ]);
+        /* The English site keeps a parallel set of products.
+         *
+         * We filter in PHP rather than with a `meta_query` on purpose:
+         * adding a meta_query changes the query plan, which changes the
+         * order the rows come back in, and that order ends up in the
+         * generated JSON map. Filtering in PHP keeps the exact same
+         * query (and therefore the exact same output) as before the
+         * English site existed. */
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+        if ($pq->have_posts()) {
+            foreach ($pq->posts as $pid) {
+                $lang = get_post_meta($pid, '_xxdq_lang', true);
+                if ($is_en) {
+                    if ($lang !== 'en_US') {
+                        continue;
+                    }
+                } elseif ($lang === 'en_US') {
+                    continue;
+                }
+
+                /* The Chinese site keys the map by the ACF `model` field,
+                 * which holds the model code (DT-25, RV1.25-4, …).
+                 *
+                 * The English site must NOT reuse the Chinese value: for
+                 * the type-level products `model` holds a Chinese type
+                 * description (片型裸端头, 堵油型铜接线端子（DT型）, …)
+                 * instead of a code, so it would leak Chinese into the
+                 * inline JSON. XXDQ_I18n_Content::spec() resolves the
+                 * English counterpart (`model_en` → `model`) for us.
+                 *
+                 * The Chinese branch is left byte-for-byte identical so
+                 * the baseline pages do not change. */
+                if ($is_en) {
+                    $model = class_exists('XXDQ_I18n_Content')
+                        ? XXDQ_I18n_Content::spec('model', $pid)
+                        : '';
+                    if ($model === '') {
+                        $model = get_the_title($pid);
+                    }
+                    /* Belt-and-braces: an English map key must never
+                     * contain CJK, otherwise the inline JSON would leak
+                     * Chinese onto /en/ pages. */
+                    if (preg_match('/[\x{4e00}-\x{9fff}]/u', $model)) {
+                        $model = get_the_title($pid);
+                    }
+                } else {
+                    $model = function_exists('get_field')
+                        ? (string) get_field('model', $pid)
+                        : '';
+                    if ($model === '') {
+                        $model = get_the_title($pid);
+                    }
+                }
+                $model = trim($model);
+                if ($model !== '') {
+                    $product_map[$model] = get_permalink($pid);
+                }
+            }
+            wp_reset_postdata();
+        }
+        $product_map_json = wp_json_encode(
+            (object) $product_map,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        // FAQ stays ACF-only (see comment above).
+        $seo_faqs = [];
+        if (function_exists('get_field')) {
+            $acf_faqs = get_field('selector_faqs', $page_id);
+            if (is_array($acf_faqs) && !empty($acf_faqs)) {
+                $seo_faqs = $acf_faqs;
+            }
+        }
+
+        /* ── UI string table ────────────────────────────────────────────
+         * The Chinese strings are the historical defaults; the English
+         * ones are the equivalents for the /en/ site. */
+        if (empty($seo_faqs)) {
+            $seo_faqs = $is_en ? self::selector_faqs_en() : [
+                ['q' => '为什么计算结果比标称值小？', 'a' => '因为实际工况下温度升高、穿管散热差、铝芯电阻率高于铜芯等原因,需要对基准载流量进行修正。'],
+                ['q' => '截面 1.5 mm² 选 DT-16 是不是太浪费？', 'a' => '工具会自动向上取整到最近的规格型号,这是出于安全裕度考虑。如果对成本敏感,可联系我司技术确认更小规格。'],
+                ['q' => '已知功率 kW,为什么用公式换算成电流再选？', 'a' => '端子库的规格是按基准载流量(安培)编排的,选型本质是按电流。系统电压、相数、功率因数决定了功率对应的电流值,公式 I = P/(U·cosφ)(单相)或 I = P/(√3·U·cosφ)(三相)就是电气工程的标准换算。'],
+                ['q' => '为什么我填了功率,但工具还是让我按截面反算？', 'a' => '功率字段是「选填」,留空时工具按导线截面查端子表,并根据修正后的载流量反算该截面对应的最大可持续功率,便于您核对设计裕度。'],
+                ['q' => '功率因数默认 0.85,可以改吗？', 'a' => '可以。电机类负载一般取 0.8–0.85,电阻性负载（电加热、白炽灯）取 1.0,变频器后端可取 0.95 以上。表单中可自定义输入 0–1 之间。'],
+                ['q' => '铜线和铝线为什么不能直接压接？', 'a' => '铜铝直接接触会形成电偶腐蚀,接触电阻迅速增大、发热。铜铝过渡场合必须使用 DTL 系列（铜铝过渡端子）。'],
+                ['q' => 'DTL 端子的铝端可以反复拆装吗？', 'a' => '不建议。DTL 端子在压接后形成气密连接,拆装会破坏氧化层,需要重新打掉氧化层或更换新品。'],
+                ['q' => '计算结果可以直接下单吗？', 'a' => '可以。点击「立即询价」按钮,系统会自动把推荐型号带到询价单,您只需补充数量和交期。'],
+            ];
+        }
+
+        // Build Schema.org JSON-LD AFTER FAQs are resolved so the FAQPage
+        // entity has the final list. Two @graph entries:
+        //   - SoftwareApplication (the calculator tool itself)
+        //   - FAQPage (the 8 Q&A items)
+        $schema_ld = self::build_selector_schema($page_id, $seo_faqs, $inquiry_url);
+
+        ob_start();
+        ?>
+<section class="xxdq-selector" data-inquiry-url="<?php echo esc_attr($inquiry_url); ?>"<?php echo $is_en ? ' data-lang="en"' : ''; ?>>
+  <script type="application/json" class="xxdq-selector__product-map"><?php echo $product_map_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — JSON is server-generated and trusted; user data flows through wp_json_encode which handles JSON-level escaping. ?></script>
+  <header class="xxdq-selector__hero">
+    <h1><?php echo esc_html($t['hero_title']); ?></h1>
+    <p><?php echo esc_html($t['hero_sub']); ?></p>
+  </header>
+
+  <div class="xxdq-selector__card">
+    <h2><?php echo esc_html($t['form_title']); ?></h2>
+    <p class="xxdq-selector__hint"><?php echo esc_html($t['form_hint']); ?></p>
+    <form class="xxdq-selector__form" id="xxdq-selector-form" novalidate>
+
+      <div class="xxdq-selector__field">
+        <label class="xxdq-selector__label" for="xxdq-area"><?php echo esc_html($t['area']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-area" name="area" required>
+          <option value=""><?php echo esc_html($t['area_ph']); ?></option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field">
+        <label class="xxdq-selector__label" for="xxdq-material"><?php echo esc_html($t['material']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-material" name="material" required>
+          <option value="copper"><?php echo esc_html($t['mat_copper']); ?></option>
+          <option value="aluminum"><?php echo esc_html($t['mat_aluminum']); ?></option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field">
+        <label class="xxdq-selector__label" for="xxdq-temp"><?php echo esc_html($t['temp']); ?><span class="xxdq-selector__req">*</span></label>
+        <input class="xxdq-selector__input" type="number" id="xxdq-temp" name="temp" min="-30" max="80" step="1" value="25" required>
+      </div>
+
+      <div class="xxdq-selector__field">
+        <label class="xxdq-selector__label" for="xxdq-install"><?php echo esc_html($t['install']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-install" name="install" required>
+          <option value="air"><?php echo esc_html($t['inst_air']); ?></option>
+          <option value="pipe"><?php echo esc_html($t['inst_pipe']); ?></option>
+          <option value="buried"><?php echo esc_html($t['inst_buried']); ?></option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field">
+        <label class="xxdq-selector__label" for="xxdq-type"><?php echo esc_html($t['type']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-type" name="type" required>
+          <option value="DT"><?php echo esc_html($t['type_dt']); ?></option>
+          <option value="SC"><?php echo esc_html($t['type_sc']); ?></option>
+          <option value="RV"><?php echo esc_html($t['type_rv']); ?></option>
+          <option value="DTL"><?php echo esc_html($t['type_dtl']); ?></option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field xxdq-selector__field--power">
+        <label class="xxdq-selector__label" for="xxdq-voltage"><?php echo esc_html($t['voltage']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-voltage" name="voltage" required>
+          <option value="220">220 V</option>
+          <option value="380" selected>380 V</option>
+          <option value="660">660 V</option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field xxdq-selector__field--power">
+        <label class="xxdq-selector__label" for="xxdq-phase"><?php echo esc_html($t['phase']); ?><span class="xxdq-selector__req">*</span></label>
+        <select class="xxdq-selector__select" id="xxdq-phase" name="phase" required>
+          <option value="three" selected><?php echo esc_html($t['phase_three']); ?></option>
+          <option value="single"><?php echo esc_html($t['phase_single']); ?></option>
+        </select>
+      </div>
+
+      <div class="xxdq-selector__field xxdq-selector__field--power">
+        <label class="xxdq-selector__label" for="xxdq-power"><?php echo esc_html($t['power']); ?></label>
+        <input class="xxdq-selector__input" type="number" id="xxdq-power" name="power" min="0" step="0.1" placeholder="<?php echo esc_attr($t['optional']); ?>">
+      </div>
+
+      <div class="xxdq-selector__field xxdq-selector__field--power">
+        <label class="xxdq-selector__label" for="xxdq-powerfactor"><?php echo esc_html($t['powerfactor']); ?></label>
+        <input class="xxdq-selector__input" type="number" id="xxdq-powerfactor" name="powerFactor" min="0" max="1" step="0.01" value="0.85">
+      </div>
+
+      <div class="xxdq-selector__actions">
+        <button type="submit" class="xxdq-selector__btn xxdq-selector__btn--primary"><?php echo esc_html($t['submit']); ?></button>
+        <button type="button" class="xxdq-selector__btn xxdq-selector__btn--ghost xxdq-selector__reset"><?php echo esc_html($t['reset']); ?></button>
+      </div>
+    </form>
+  </div>
+
+  <div class="xxdq-selector__error" role="alert">
+    <strong><?php echo esc_html($t['err_title']); ?></strong>
+    <span class="xxdq-selector__error-msg"></span>
+  </div>
+
+  <div class="xxdq-selector__result" aria-live="polite">
+
+    <div class="xxdq-selector__result-head">
+      <h2 class="xxdq-selector__result-title"><?php echo esc_html($t['res_title']); ?></h2>
+      <span class="xxdq-selector__model-badge"></span>
+    </div>
+
+    <div class="xxdq-selector__tables">
+
+      <!-- <?php echo $is_en ? 'Terminal selection result' : '端子选型结果'; ?> -->
+      <div class="xxdq-selector__terminal-section">
+        <h3><?php echo esc_html($t['sec_terminal']); ?></h3>
+        <table class="xxdq-selector__terminal-table">
+          <tbody>
+            <tr>
+              <th><?php echo esc_html($t['row_model']); ?></th>
+              <td class="xxdq-selector__stat--model"><span class="xxdq-selector__model-badge">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_hole']); ?></th>
+              <td><span class="xxdq-selector__stat--hole xxdq-selector__stat-value">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_mold']); ?></th>
+              <td><span class="xxdq-selector__stat--mold xxdq-selector__stat-value">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_base']); ?></th>
+              <td><span class="xxdq-selector__stat--base xxdq-selector__stat-value">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_actual']); ?></th>
+              <td><span class="xxdq-selector__stat--actual xxdq-selector__stat-value">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_conclusion']); ?></th>
+              <td><span class="xxdq-selector__terminal-conclusion">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- <?php echo $is_en ? 'Power information' : '功率信息'; ?> -->
+      <div class="xxdq-selector__power-section">
+        <h3><?php echo esc_html($t['sec_power']); ?></h3>
+        <table class="xxdq-selector__power-table">
+          <tbody>
+            <tr>
+              <th><?php echo esc_html($t['row_voltage']); ?></th>
+              <td><span class="xxdq-selector__pv--voltage">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_phase']); ?></th>
+              <td><span class="xxdq-selector__pv--phase">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_pf']); ?></th>
+              <td><span class="xxdq-selector__pv--powerfactor">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_power']); ?></th>
+              <td><span class="xxdq-selector__pv--power">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_target']); ?></th>
+              <td><span class="xxdq-selector__pv--target">—</span></td>
+            </tr>
+            <tr>
+              <th><?php echo esc_html($t['row_actual']); ?></th>
+              <td><span class="xxdq-selector__pv--actual">—</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /.xxdq-selector__tables -->
+
+    <!-- Warning strip (JS toggles is-visible) -->
+    <div class="xxdq-selector__warning" role="alert">
+      <strong><?php echo esc_html($t['warn_title']); ?></strong>
+      <span class="xxdq-selector__warning-text"></span>
+    </div>
+
+    <!-- Correction factors -->
+    <div class="xxdq-selector__factors">
+      <strong><?php echo esc_html($t['factors']); ?></strong>
+      <ul>
+        <li><?php echo esc_html($t['f_temp']); ?> <strong class="xxdq-selector__factor--temp">—</strong></li>
+        <li><?php echo esc_html($t['f_install']); ?> <strong class="xxdq-selector__factor--install">—</strong></li>
+        <li><?php echo esc_html($t['f_material']); ?> <strong class="xxdq-selector__factor--material">—</strong></li>
+      </ul>
+    </div>
+
+    <!-- Note strip -->
+    <div class="xxdq-selector__note" style="display:none">
+      <span class="xxdq-selector__note-text"></span>
+    </div>
+
+    <!-- CTA buttons -->
+    <div class="xxdq-selector__cta">
+      <a class="xxdq-selector__btn xxdq-selector__btn--accent xxdq-selector__inquiry-btn" href="<?php echo esc_url($inquiry_url); ?>"><?php echo esc_html($t['cta_inquiry']); ?></a>
+      <a class="xxdq-selector__btn xxdq-selector__btn--ghost xxdq-selector__product-btn" href="#" style="display:none" rel="nofollow"><?php echo esc_html($t['cta_product']); ?></a>
+      <a class="xxdq-selector__btn xxdq-selector__btn--ghost xxdq-selector__recalc-btn" href="#xxdq-selector-form"><?php echo esc_html($t['cta_recalc']); ?></a>
+    </div>
+
+  </div>
+
+  <section class="xxdq-selector__seo">
+    <h2><?php echo esc_html($t['seo_title']); ?></h2>
+    <div><?php echo wp_kses_post($seo_intro); ?></div>
+
+    <h3><?php echo esc_html($t['seo_formula']); ?></h3>
+    <pre class="xxdq-selector__formula"><?php echo esc_html($seo_formula); ?></pre>
+
+    <h3><?php echo esc_html($t['seo_faq']); ?></h3>
+    <dl class="xxdq-selector__faq">
+      <?php foreach ($seo_faqs as $row) :
+        $q = isset($row['q']) ? (string) $row['q'] : '';
+        $a = isset($row['a']) ? (string) $row['a'] : '';
+        if ($q === '' && $a === '') continue; ?>
+        <dt><?php echo esc_html($q); ?></dt>
+        <dd><?php echo esc_html($a); ?></dd>
+      <?php endforeach; ?>
+    </dl>
+  </section>
+
+  <?php echo $schema_ld; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — JSON-LD is generated server-side and escaped inside the helper. ?>
+</section>
+        <?php
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * Build Schema.org JSON-LD for the selector-tool page.
+     * Emits two @graph entries:
+     *   - SoftwareApplication (the calculator tool itself)
+     *   - FAQPage (the 8 Q&A items)
+     * The result is a single <script type="application/ld+json"> tag.
+     * All dynamic fields are escaped; the wrapper is plain HTML.
+     */
+    /**
+     * The UI string table for the selector tool.
+     *
+     * The Chinese entry holds the historical strings verbatim so the
+     * Chinese page output does not change by a single byte. The English
+     * entry carries the /en/ equivalents.
+     *
+     * @param bool $is_en Whether to return the English strings.
+     * @return array<string,string>
+     */
+    private static function selector_strings($is_en) {
+        if (!$is_en) {
+            return [
+                'hero_title'    => '铜鼻子/冷压端子选型计算器',
+                'hero_sub'      => '输入导线截面、材质、环境温度，自动推荐合适的铜鼻子 / 冷压端子 / 预绝缘端子 / 铜铝过渡端子型号。',
+                'form_title'    => '选型参数',
+                'form_hint'     => '所有字段均需填写；不确定的项可按常规场景选择。',
+                'area'          => '导线截面',
+                'area_ph'       => '请选择截面',
+                'material'      => '导线材质',
+                'mat_copper'    => '铜芯',
+                'mat_aluminum'  => '铝芯',
+                'temp'          => '环境温度 (℃)',
+                'install'       => '安装方式',
+                'inst_air'      => '空气中敷设',
+                'inst_pipe'     => '穿管敷设',
+                'inst_buried'   => '直埋敷设',
+                'type'          => '端子类型',
+                'type_dt'       => 'DT 系列（铜鼻子）',
+                'type_sc'       => 'SC 系列（冷压端子）',
+                'type_rv'       => 'RV 系列（预绝缘端子）',
+                'type_dtl'      => 'DTL 系列（铜铝过渡）',
+                'voltage'       => '系统电压 (V)',
+                'phase'         => '相数',
+                'phase_three'   => '三相',
+                'phase_single'  => '单相',
+                'power'         => '负载功率 (kW)',
+                'optional'      => '选填',
+                'powerfactor'   => '功率因数 (cosφ)',
+                'submit'        => '立即计算',
+                'reset'         => '重置',
+                'err_title'     => '无法匹配型号',
+                'res_title'     => '推荐型号',
+                'sec_terminal'  => '端子选型结果',
+                'row_model'     => '推荐型号',
+                'row_hole'      => '螺栓孔径',
+                'row_mold'      => '压接模具',
+                'row_base'      => '基准载流量',
+                'row_actual'    => '修正后载流量',
+                'row_conclusion'=> '选型结论',
+                'sec_power'     => '功率信息',
+                'row_voltage'   => '系统电压',
+                'row_phase'     => '相数',
+                'row_pf'        => '功率因数',
+                'row_power'     => '负载功率',
+                'row_target'    => '目标电流',
+                'warn_title'    => '⚠️ 载流量不足',
+                'factors'       => '修正系数明细：',
+                'f_temp'        => '温度',
+                'f_install'     => '安装方式',
+                'f_material'    => '材质',
+                'cta_inquiry'   => '立即询价',
+                'cta_product'   => '查看该型号产品',
+                'cta_recalc'    => '重新选型',
+                'seo_title'     => '使用说明',
+                'seo_formula'   => '计算公式',
+                'seo_faq'       => '常见问题 (FAQ)',
+                'seo_intro'     => '<p>本工具根据您提供的导线截面、负载功率（或反算）与工况参数,'
+                    . '依据电气工程常用修正系数（GB/T 4703 / IEC 61238）推荐匹配的铜鼻子、冷压端子、'
+                    . '预绝缘端子或铜铝过渡端子型号。计算结果仅供参考,正式采购前请与我司技术人员确认。</p>',
+                'seo_formula_body' => "载流量修正:\n"
+                    . "  实际载流量 = 基准载流量 × 温度修正系数 × 安装方式修正系数 × 材质修正系数\n\n"
+                    . "功率 → 目标电流（用于按功率选型）:\n"
+                    . "  单相:  I = P × 1000 / (U × cosφ)\n"
+                    . "  三相:  I = P × 1000 / (√3 × U × cosφ)\n\n"
+                    . "已知导线截面时，反算最大可持续功率:\n"
+                    . "  单相:  P = U × I × cosφ / 1000\n"
+                    . "  三相:  P = √3 × U × I × cosφ / 1000",
+            ];
+        }
+
+        return [
+            'hero_title'    => 'Cable Lug & Crimp Terminal Selection Calculator',
+            'hero_sub'      => 'Enter the conductor cross-section, material and ambient temperature to get a recommended copper lug, crimp terminal, pre-insulated terminal or copper-to-aluminium transition terminal.',
+            'form_title'    => 'Selection Parameters',
+            'form_hint'     => 'All fields are required. If you are unsure about one of them, pick the most common scenario.',
+            'area'          => 'Conductor Cross-section',
+            'area_ph'       => 'Select a cross-section',
+            'material'      => 'Conductor Material',
+            'mat_copper'    => 'Copper',
+            'mat_aluminum'  => 'Aluminium',
+            'temp'          => 'Ambient Temperature (°C)',
+            'install'       => 'Installation Method',
+            'inst_air'      => 'In-air installation',
+            'inst_pipe'     => 'In-conduit installation',
+            'inst_buried'   => 'Direct burial',
+            'type'          => 'Terminal Type',
+            'type_dt'       => 'DT Series (Copper Lug)',
+            'type_sc'       => 'SC Series (Crimp Terminal)',
+            'type_rv'       => 'RV Series (Pre-insulated Terminal)',
+            'type_dtl'      => 'DTL Series (Copper-to-Aluminium)',
+            'voltage'       => 'System Voltage (V)',
+            'phase'         => 'Phase',
+            'phase_three'   => 'Three phase',
+            'phase_single'  => 'Single phase',
+            'power'         => 'Load Power (kW)',
+            'optional'      => 'Optional',
+            'powerfactor'   => 'Power Factor (cosφ)',
+            'submit'        => 'Calculate',
+            'reset'         => 'Reset',
+            'err_title'     => 'No matching model',
+            'res_title'     => 'Recommended Model',
+            'sec_terminal'  => 'Terminal Selection Result',
+            'row_model'     => 'Recommended Model',
+            'row_hole'      => 'Stud Size',
+            'row_mold'      => 'Crimp Die',
+            'row_base'      => 'Base Ampacity',
+            'row_actual'    => 'Corrected Ampacity',
+            'row_conclusion'=> 'Conclusion',
+            'sec_power'     => 'Power Information',
+            'row_voltage'   => 'System Voltage',
+            'row_phase'     => 'Phase',
+            'row_pf'        => 'Power Factor',
+            'row_power'     => 'Load Power',
+            'row_target'    => 'Target Current',
+            'warn_title'    => '⚠️ Insufficient ampacity',
+            'factors'       => 'Correction factors:',
+            'f_temp'        => 'Temperature',
+            'f_install'     => 'Installation',
+            'f_material'    => 'Material',
+            'cta_inquiry'   => 'Get a Quote',
+            'cta_product'   => 'View this model',
+            'cta_recalc'    => 'Select Again',
+            'seo_title'     => 'How to Use',
+            'seo_formula'   => 'Formulas',
+            'seo_faq'       => 'Frequently Asked Questions (FAQ)',
+            'seo_intro'     => '<p>Based on the conductor cross-section, load power (or the reverse calculation) '
+                . 'and the operating conditions you provide, this tool recommends a matching copper lug, crimp terminal, '
+                . 'pre-insulated terminal or copper-to-aluminium transition terminal using the standard correction '
+                . 'factors of electrical engineering (GB/T 4703 / IEC 61238). The result is for reference only — '
+                . 'please confirm with our engineers before placing an order.</p>',
+            'seo_formula_body' => "Ampacity correction:\n"
+                . "  Corrected ampacity = Base ampacity × Temperature factor × Installation factor × Material factor\n\n"
+                . "Power → target current (for selecting by power):\n"
+                . "  Single phase:  I = P × 1000 / (U × cosφ)\n"
+                . "  Three phase:   I = P × 1000 / (√3 × U × cosφ)\n\n"
+                . "Back-calculating the maximum sustained power from a known cross-section:\n"
+                . "  Single phase:  P = U × I × cosφ / 1000\n"
+                . "  Three phase:   P = √3 × U × I × cosφ / 1000",
+        ];
+    }
+
+    /**
+     * The English FAQ for the selector tool.
+     *
+     * @return array<int,array{q:string,a:string}>
+     */
+    private static function selector_faqs_en() {
+        return [
+            ['q' => 'Why is the calculated result lower than the nominal rating?',
+             'a' => 'Under real operating conditions the ambient temperature rises, heat dissipation inside a conduit is poor, and aluminium has a higher resistivity than copper — so the base ampacity has to be corrected accordingly.'],
+            ['q' => 'Is DT-16 overkill for a 1.5 mm² conductor?',
+             'a' => 'The tool always rounds up to the next standard size for safety margin. If you are cost-sensitive, contact our engineers and we can confirm a smaller size.'],
+            ['q' => 'Why is the power in kW converted to current before selecting a terminal?',
+             'a' => 'The terminal tables are indexed by base ampacity (amperes), so selection is fundamentally a current decision. System voltage, phase count and power factor determine the current that corresponds to a given power: I = P/(U·cosφ) for single phase and I = P/(√3·U·cosφ) for three phase — the standard conversions of electrical engineering.'],
+            ['q' => 'Why does the tool still back-calculate from the cross-section after I entered the power?',
+             'a' => 'The power field is optional. When left blank, the tool looks up the terminal table by conductor cross-section and back-calculates the maximum sustained power for that size from the corrected ampacity, so you can check your design margin.'],
+            ['q' => 'Can I change the default power factor of 0.85?',
+             'a' => 'Yes. Motor loads typically use 0.8–0.85, resistive loads (heating, incandescent lighting) use 1.0, and loads behind a variable-frequency drive can use 0.95 or above. You can enter any value between 0 and 1 in the form.'],
+            ['q' => 'Why can copper and aluminium not be crimped directly together?',
+             'a' => 'Direct copper-to-aluminium contact causes galvanic corrosion; the contact resistance rises rapidly and the joint heats up. A DTL series (copper-to-aluminium transition terminal) must be used for these applications.'],
+            ['q' => 'Can the aluminium side of a DTL terminal be assembled and disassembled repeatedly?',
+             'a' => 'Not recommended. A DTL terminal forms a gas-tight connection after crimping, and disassembly destroys the oxide layer — the surface has to be re-cleaned or the terminal replaced.'],
+            ['q' => 'Can I order directly from the calculation result?',
+             'a' => 'Yes. Click the "Get a Quote" button and the recommended model is carried over into the inquiry form automatically; you only need to add the quantity and the required delivery date.'],
+        ];
+    }
+
+    /**
+     * Build Schema.org JSON-LD for the selector-tool page.
+     * Emits two @graph entries:
+     *   - SoftwareApplication (the calculator tool itself)
+     *   - FAQPage (the 8 Q&A items)
+     * The result is a single <script type="application/ld+json"> tag.
+     * All dynamic fields are escaped; the wrapper is plain HTML.
+     */
+    private static function build_selector_schema($page_id, array $faqs, $inquiry_url) {
+        $is_en     = function_exists('xxdq_is_en') && xxdq_is_en();
+        $page_url  = $page_id ? get_permalink($page_id) : home_url('/online-tools/');
+        $site_name = $is_en ? 'Gengwen Electric' : get_bloginfo('name');
+        $desc      = $is_en
+            ? 'Free online cable lug and crimp terminal selection calculator. Enter the conductor cross-section, material and ambient temperature to get a recommended copper lug or crimp terminal model, the matching crimp die and the reference ampacity. 10 years of direct-manufacturing experience, CE / RoHS certified, ships within 24 hours.'
+            : '免费在线铜鼻子选型计算器,输入导线截面、材质、环境温度,自动推荐合适的铜鼻子/冷压端子型号、压接模具及参考载流量。10年源头工厂,CE/RoHS认证,24小时出货。';
+
+        // FAQPage: only emit entities that have both Q and A.
+        $faq_entities = [];
+        foreach ($faqs as $row) {
+            $q = isset($row['q']) ? trim((string) $row['q']) : '';
+            $a = isset($row['a']) ? trim((string) $row['a']) : '';
+            if ($q === '' || $a === '') continue;
+            $faq_entities[] = [
+                '@type'      => 'Question',
+                'name'       => $q,
+                'acceptedAnswer' => [
+                    '@type' => 'Answer',
+                    'text'  => $a,
+                ],
+            ];
+        }
+
+        $graph = [
+            [
+                '@type'            => 'SoftwareApplication',
+                'name'             => $is_en ? 'Cable Lug & Crimp Terminal Selection Calculator' : '端子选型计算器',
+                'headline'         => $is_en ? 'Online Copper Lug & Crimp Terminal Spec Lookup' : '铜鼻子 / 冷压端子规格在线查询',
+                'url'              => $page_url,
+                'applicationCategory' => 'UtilitiesApplication',
+                'operatingSystem'  => 'Any (Web Browser)',
+                'inLanguage'       => $is_en ? 'en-US' : 'zh-CN',
+                'description'      => $desc,
+                'offers'           => [
+                    '@type'         => 'Offer',
+                    'price'         => '0',
+                    'priceCurrency' => 'CNY',
+                ],
+                'publisher'        => [
+                    '@type' => 'Organization',
+                    'name'  => $site_name,
+                    'url'   => home_url('/'),
+                ],
+            ],
+            [
+                '@type'         => 'FAQPage',
+                'url'           => $page_url,
+                'mainEntity'    => $faq_entities,
+            ],
+        ];
+
+        $payload = [
+            '@context' => 'https://schema.org',
+            '@graph'   => $graph,
+        ];
+
+        $json = wp_json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        return '<script type="application/ld+json">' . $json . '</script>' . "\n";
     }
 
     /* ── PDF AGGREGATOR ────────────────────────────────────── */
@@ -310,6 +1271,14 @@ class XXDQ_Blocks_Render {
 
     /* ── ABOUT ─────────────────────────────────────────────── */
     public static function render_about($block, $content = '', $is_preview = false, $post_id = 0) {
+        /* The English site renders an English version of this block. The
+         * Chinese text below stays byte-identical for the Chinese site. */
+        if (function_exists('xxdq_is_en') && xxdq_is_en()) {
+            return '<div class="xxdq-about">
+  <h2>About Us</h2>
+  <p>We are a source factory specialised in the production and sales of electrical connectors. Our range covers copper lugs, crimp terminals, pre-insulated terminals and wire-end connectors, widely used in power distribution, telecommunications and industrial control. More than 10 years of industry experience, serving customers at home and abroad.</p>
+</div>';
+        }
         return '<div class="xxdq-about">
   <h2>关于我们</h2>
   <p>我们是一家专业从事电气连接件生产与销售的源头工厂,产品涵盖铜鼻子、冷压端子、预绝缘端子、接插件等,广泛应用于电力、通信、工业控制等领域。10年以上行业经验,服务客户遍及国内外。</p>
@@ -318,13 +1287,40 @@ class XXDQ_Blocks_Render {
 
     /* ── CONTACT CARDS ─────────────────────────────────────── */
     public static function render_contact_cards($block, $content = '', $is_preview = false, $post_id = 0) {
-        $cards = [
-            ['icon' => '📍', 'title' => '地址',     'body' => '浙江省乐清市柳市镇'],
-            ['icon' => '📞', 'title' => '电话',    'body' => '0577-XXXXXXXX'],
-            ['icon' => '✉️', 'title' => '邮箱',    'body' => 'info@xxdqexample.com'],
-            ['icon' => '🕐', 'title' => '工作时间','body' => '周一至周六 8:30-17:30'],
-        ];
-        $html = '<div class="xxdq-contact-cards"><h2>联系我们</h2><div class="xxdq-contact-cards__grid">';
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+
+        /* The cards must show the SAME contact details as the footer and
+         * the LocalBusiness JSON-LD — a page that lists "0577-XXXX"
+         * while the footer lists the real number is a NAP inconsistency
+         * and hurts local SEO. The shared helper is the single source of
+         * truth. */
+        $contact = function_exists('xxdq_company_contact')
+            ? xxdq_company_contact()
+            : [
+                'address' => '浙江省乐清市柳市镇',
+                'phone'   => '+86-18658733315',
+                'email'   => '197995061@qq.com',
+                'hours'   => '周一至周六 8:30-17:30',
+            ];
+
+        if ($is_en) {
+            $cards = [
+                ['icon' => '📍', 'title' => 'Address',        'body' => $contact['address']],
+                ['icon' => '📞', 'title' => 'Phone',         'body' => $contact['phone']],
+                ['icon' => '✉️', 'title' => 'Email',         'body' => $contact['email']],
+                ['icon' => '🕐', 'title' => 'Business Hours','body' => $contact['hours']],
+            ];
+        } else {
+            $cards = [
+                ['icon' => '📍', 'title' => '地址',     'body' => $contact['address']],
+                ['icon' => '📞', 'title' => '电话',    'body' => $contact['phone']],
+                ['icon' => '✉️', 'title' => '邮箱',    'body' => $contact['email']],
+                ['icon' => '🕐', 'title' => '工作时间','body' => $contact['hours']],
+            ];
+        }
+
+        $heading = $is_en ? 'Contact Us' : '联系我们';
+        $html = '<div class="xxdq-contact-cards"><h2>' . esc_html($heading) . '</h2><div class="xxdq-contact-cards__grid">';
         foreach ($cards as $c)
             $html .= sprintf('<div class="xxdq-contact-card"><h3>%s %s</h3><p>%s</p></div>',
                 esc_html($c['icon']), esc_html($c['title']), esc_html($c['body']));
@@ -334,8 +1330,87 @@ class XXDQ_Blocks_Render {
     /* ── INQUIRY FORM ─────────────────────────────────────── */
     public static function render_inquiry_form($block, $content = '', $is_preview = false, $post_id = 0) {
         $nonce = wp_nonce_field('xxdq_inquiry_submit', 'xxdq_inquiry_nonce', true, false);
+        $is_en = function_exists('xxdq_is_en') && xxdq_is_en();
+
+        // Show a "thanks" panel when the form was just submitted, so the
+        // visitor gets visual confirmation instead of seeing the same
+        // form again (which made it look like the submission failed).
+        $thanks_html = '';
+        if (function_exists('get_query_var')) {
+            $submitted = get_query_var('submitted');
+            if (!$submitted && isset($_GET['submitted'])) {
+                $submitted = sanitize_text_field(wp_unslash($_GET['submitted']));
+            }
+            if ($submitted === '1') {
+                $thanks_html = '<div class="xxdq-inquiry-form__success" role="status">'
+                    . '<strong>' . esc_html(xxdq_t('inquiry.success')) . '</strong> '
+                    . esc_html(xxdq_t('inquiry.success_msg'))
+                    . '</div>';
+            }
+        }
+
+        // Pre-fill "产品型号" from URL when arriving from a product page.
+        // Product-page "立即询价" button uses ?model=<title>; read both
+        // ?model= (current) and ?product= (legacy URL-encoded) as fallbacks.
+        $prefill = '';
+        if (isset($_GET['model'])) {
+            $prefill = sanitize_text_field(wp_unslash($_GET['model']));
+        } elseif (isset($_GET['product'])) {
+            $prefill = sanitize_text_field(wp_unslash($_GET['product']));
+        }
+        $prefill_attr = $prefill !== ''
+            ? sprintf(' value="%s"', esc_attr($prefill))
+            : '';
+
+        /* The English site submits an English inquiry. The labels below
+         * come from the language catalog, so the form renders in English.
+         * The backend handler stores the submission and flags it as an
+         * English inquiry so the sales team reads it correctly. */
+        if ($is_en) {
+            return sprintf('<div class="xxdq-inquiry-form">
+  <h2>%s</h2>
+  %s
+  <form class="xxdq-inquiry-form__form" method="POST" action="%s">
+    %s
+    <input type="hidden" name="action" value="xxdq_inquiry_submit">
+    <input type="hidden" name="xxdq_inquiry_lang" value="en_US">
+    <div class="xxdq-form-row">
+      <label>%s <input type="text" name="company" required></label>
+      <label>%s <input type="text" name="name" required></label>
+    </div>
+    <div class="xxdq-form-row">
+      <label>%s <input type="tel" name="phone" required></label>
+      <label>%s <input type="email" name="email"></label>
+    </div>
+    <div class="xxdq-form-row">
+      <label>%s <input type="text" name="product" placeholder="%s"%s></label>
+    </div>
+    <label>%s
+      <textarea name="message" rows="4" placeholder="%s" required></textarea>
+    </label>
+    <button type="submit" class="xxdq-form-submit">%s</button>
+  </form>
+</div>',
+                esc_html(xxdq_t('inquiry.title')),
+                $thanks_html,
+                esc_url(admin_url('admin-post.php')),
+                $nonce,
+                esc_html(xxdq_t('inquiry.company')),
+                esc_html(xxdq_t('inquiry.name')),
+                esc_html(xxdq_t('inquiry.phone')),
+                esc_html(xxdq_t('inquiry.email')),
+                esc_html(xxdq_t('inquiry.model')),
+                esc_attr(xxdq_t('inquiry.model_ph')),
+                $prefill_attr,
+                esc_html(xxdq_t('inquiry.message')),
+                esc_attr(xxdq_t('inquiry.message_ph')),
+                esc_html(xxdq_t('inquiry.submit'))
+            );
+        }
+
         return sprintf('<div class="xxdq-inquiry-form">
   <h2>询价单</h2>
+  %s
   <form class="xxdq-inquiry-form__form" method="POST" action="%s">
     %s
     <input type="hidden" name="action" value="xxdq_inquiry_submit">
@@ -348,16 +1423,18 @@ class XXDQ_Blocks_Render {
       <label>邮箱 <input type="email" name="email"></label>
     </div>
     <div class="xxdq-form-row">
-      <label>产品型号 <input type="text" name="product" placeholder="如 DT-16"></label>
+      <label>产品型号 <input type="text" name="product" placeholder="如 DT-16"%s></label>
     </div>
     <label>需求描述
-      <textarea name="message" rows="4" placeholder="请描述您需要的产品型号、数量、交期等"></textarea>
+      <textarea name="message" rows="4" placeholder="请描述您需要的产品型号、数量、交期等" required></textarea>
     </label>
     <button type="submit" class="xxdq-form-submit">提交询价</button>
   </form>
 </div>',
+            $thanks_html,
             esc_url(admin_url('admin-post.php')),
-            $nonce
+            $nonce,
+            $prefill_attr
         );
     }
 
@@ -451,7 +1528,7 @@ class XXDQ_Blocks_Render {
                     'title'    => $site_name,
                     'subtitle' => $hero_eyebrow,
                     'btn_text' => '立即询价',
-                    'btn_url'  => '/询价单/',
+                    'btn_url'  => self::inquiry_url(),
                 ],
             ];
         }

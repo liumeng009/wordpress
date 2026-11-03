@@ -52,13 +52,7 @@ class XXDQ_PIM_Exporter {
                 'terms'    => (array) $args['category'],
             ];
         }
-        if ($args['series']) {
-            $tax_query[] = [
-                'taxonomy' => 'product_series',
-                'field'    => 'term_id',
-                'terms'    => (array) $args['series'],
-            ];
-        }
+        /* product_series removed: sub-filtering now done via product_category sub-terms. */
         if ($tax_query) {
             $query_args['tax_query'] = $tax_query;
         }
@@ -214,7 +208,7 @@ class XXDQ_PIM_Exporter {
             $row[$k] = get_field($k, $post->ID);
         }
         $row['categories'] = wp_get_post_terms($post->ID, 'product_category', ['fields' => 'names']);
-        $row['series']     = wp_get_post_terms($post->ID, 'product_series', ['fields' => 'names']);
+        /* series removed — sub-grouping now comes from hierarchical product_category. */
         $row['image_url']  = get_the_post_thumbnail_url($post->ID, 'full');
         $row['tech_image_url'] = wp_get_attachment_image_url(get_field('tech_image', $post->ID), 'full');
         $att = get_field('attachment', $post->ID);

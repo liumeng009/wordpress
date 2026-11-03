@@ -36,6 +36,13 @@ app/public/wp-content/plugins/vibe-ai/
 app/public/wp-content/plugins/index.php
 app/public/wp-content/plugins/hello.php
 app/public/wp-content/plugins/akismet/
+app/public/wp-content/plugins/all-in-one-wp-migration/
+app/public/wp-content/plugins/bing-webmaster-tools/
+app/public/wp-content/plugins/ggpush/
+app/public/wp-content/plugins/indexnow/
+app/public/wp-content/plugins/jeanalytics/
+app/public/wp-content/plugins/novamira/
+app/public/wp-content/plugins/wordpress-seo/
 
 # WP runtime dirs
 app/public/wp-content/upgrade/
@@ -43,8 +50,16 @@ app/public/wp-content/cache/
 app/public/wp-content/uploads/
 app/public/wp-content/backups/
 app/public/wp-content/mu-plugins/
+app/public/wp-content/languages/
+app/public/wp-content/novamira-sandbox/
+app/public/wp-content/ai1wm-backups/
+app/public/wp-content/en-content-review.txt
+app/public/wp-content/$null
 app/public/wp-content/debug.log
 app/public/wp-content/RENAME_MAP.md
+# Yoast SEO auto-generates this at the webroot — it always carries the
+# CURRENT host, so a committed copy would ship stale localhost URLs.
+app/public/llms.txt
 
 # ============================================================
 # Custom plugins — INCLUDE these (must come AFTER ignore rules)
@@ -53,6 +68,7 @@ app/public/wp-content/RENAME_MAP.md
 !app/public/wp-content/plugins/xxdq-theme/
 !app/public/wp-content/plugins/xxdq-pim/
 !app/public/wp-content/plugins/xxdq-blocks/
+!app/public/wp-content/plugins/xxdq-tools/
 
 # ============================================================
 # Empty config dirs at repo root
@@ -62,14 +78,25 @@ logs/
 scripts/
 
 # ============================================================
-# Dev / debug scripts at repo root (one-off utilities)
+# Local dev artifacts (one-off utilities, PDF extraction, image probes)
+# Moved into _dev/ on 2026-09-27. Anything new under _dev/ stays ignored.
 # ============================================================
-*.py
-*.ps1
-*.txt
-*.csv
-!README.md
+_dev/
+/*.py
+/*.ps1
+/*.sql
+/*.pdf
+/*.html
+/*.tmp
+/*.log
+# Workspace-root .txt debug logs (data dumps, scan output, etc.)
+/*.txt
+# Keep README.md and SEO_TODO.md at the workspace root.
+/!README.md
+/!SEO_TODO.md
 
+# ============================================================
 # OS
+# ============================================================
 .DS_Store
 Thumbs.db
