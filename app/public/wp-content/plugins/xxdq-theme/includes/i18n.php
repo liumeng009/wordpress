@@ -161,6 +161,18 @@ class XXDQ_I18n {
      * /product/copper-lug/ points at /en/product/copper-lug/ and
      * "中文" on /en/product/copper-lug/ points at /product/copper-lug/.
      *
+     * A naive prefix swap is NOT always correct. The English parallel
+     * of a Chinese article keeps its OWN slug — the titles were
+     * rewritten during translation, so "冷压端子压接标准" lives at
+     * /news/cold-terminal-crimp-standard/ but its English counterpart
+     * lives at /en/news/crimp-terminal-crimping-standards/. Swapping
+     * the prefix alone sends the visitor to a 404.
+     *
+     * The two languages are linked through the `_xxdq_zh_id` /
+     * `_xxdq_en_id` post meta, so the counterpart post is looked up
+     * first and its real permalink used. Only when no counterpart
+     * exists does the code fall back to the plain prefix swap.
+     *
      * @param string $target_lang Target language.
      * @return string
      */
@@ -169,18 +181,111 @@ class XXDQ_I18n {
         $path = parse_url($uri, PHP_URL_PATH);
         $path = is_string($path) ? $path : '/';
 
-        // Strip a trailing slash handling — keep it consistent with WP.
         $en = self::is_en();
 
-        if ($target_lang === 'en_US' && !$en) {
+        /* Same language — nothing to switch to. */
+        if (($target_lang === 'en_US') === $en) {
+            return home_url($path);
+        }
+
+        /* A single article/page has a counterpart with its own slug —
+         * use that post's real permalink. */
+        $counterpart = self::counterpart_permalink($target_lang);
+        if ($counterpart !== '') {
+            return $counterpart;
+        }
+
+        if ($target_lang === 'en_US') {
             return self::url_for('en_US', $path);
         }
-        if ($target_lang === 'zh_CN' && $en) {
-            // Remove the /en prefix.
-            $stripped = preg_replace('#^/en(/|$)#', '/', $path);
-            return home_url($stripped === '' ? '/' : $stripped);
+
+        // Remove the /en prefix.
+        $stripped = preg_replace('#^/en(/|$)#', '/', $path);
+        return home_url($stripped === '' ? '/' : $stripped);
+    }
+
+    /**
+     * The permalink of the current post in the target language.
+     *
+     * @param string $target_lang Target language ('en_US' or 'zh_CN').
+     * @return string Empty when there is no counterpart post.
+     */
+    private static function counterpart_permalink($target_lang) {
+        if (!function_exists('is_singular') || !is_singular()) {
+            return '';
         }
-        return home_url($path);
+
+        $post_id = get_the_ID();
+        if (!$post_id) {
+            return '';
+        }
+
+        /* On the English site the counterpart is the Chinese original. */
+        if ($target_lang === 'zh_CN') {
+            $zh_id = (int) get_post_meta($post_id, '_xxdq_zh_id', true);
+            if (!$zh_id) {
+                return '';
+            }
+            $target = get_post($zh_id);
+            if (!$target || $target->post_status !== 'publish') {
+                return '';
+            }
+            return self::permalink_for($target, 'zh_CN');
+        }
+
+        /* On the Chinese site the counterpart is the English parallel. */
+        $en_id = (int) get_post_meta($post_id, '_xxdq_en_id', true);
+        if (!$en_id) {
+            return '';
+        }
+        $target = get_post($en_id);
+        if (!$target || $target->post_status !== 'publish') {
+            return '';
+        }
+        return self::permalink_for($target, 'en_US');
+    }
+
+    /**
+     * The public permalink of a post in a given language.
+     *
+     * The `_xxdq_en_path` meta holds the exact public path of the
+     * English parallel ("news/do-you-need-crimp-terminals/"). It is
+     * the authoritative value — the English slug is NOT derived from
+     * the post_name (the post_name carries an "-en" / "_en" suffix
+     * that never appears in the URL), and the Chinese post's own slug
+     * differs from the English one for every translated article.
+     *
+     * On the Chinese side `get_permalink()` is already correct: the
+     * Chinese slug of a product, an article or a page IS the public
+     * slug (percent-encoded for the Chinese ones).
+     *
+     * @param WP_Post $post  The post.
+     * @param string  $lang  Language ('en_US' or 'zh_CN').
+     * @return string
+     */
+    private static function permalink_for($post, $lang) {
+        if ($lang === 'zh_CN') {
+            $link = get_permalink($post);
+            return $link ? $link : home_url('/');
+        }
+
+        $path = (string) get_post_meta($post->ID, '_xxdq_en_path', true);
+        if ($path !== '') {
+            return home_url('/en/' . ltrim($path, '/'));
+        }
+
+        /* An EMPTY `_xxdq_en_path` means the English parallel IS the
+         * home page — its path is "/en/" and there is nothing after
+         * the prefix. */
+        if ($post->post_type === 'page') {
+            return home_url('/en/');
+        }
+
+        /* No stored path — fall back to the post name minus the
+         * language suffix. */
+        $slug = preg_replace('/[-_]en$/', '', $post->post_name);
+        $type = $post->post_type === 'product' ? 'product' : $post->post_type;
+        return home_url('/en/' . $type . '/' . $slug . '/');
     }
 
     /* ── Translation lookup ────────────────────────────────────── */
