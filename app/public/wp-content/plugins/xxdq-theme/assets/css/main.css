@@ -1,8 +1,9 @@
-/* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?   XX鐢垫皵 锟?Main Stylesheet
-   Industrial B2B Electrical Theme 锟?Professional Navy Blue
-鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?*/
+/*
+ * XXDQ - Main Stylesheet
+ * Industrial B2B Electrical Theme - Professional Navy Blue
+ */
 
-/* 鈹€鈹€ VARIABLES 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== VARIABLES ===== */
 :root {
   --xx-blue:        #1565C0;
   --xx-blue-dark:   #0D47A1;
@@ -24,7 +25,7 @@
   --xx-font:        'Noto Sans SC', 'Roboto', -apple-system, sans-serif;
 }
 
-/* 鈹€鈹€ RESET & BASE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; font-size: 16px; }
@@ -38,7 +39,7 @@ body {
   padding-top: 64px; /* offset for fixed nav */
 }
 
-/* 鈹€鈹€ TOP NAVIGATION 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== TOP NAVIGATION ===== */
 .xxp-nav {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -132,7 +133,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ── LANGUAGE SWITCHER ────────────────────────────────────────
+/*  LANGUAGE SWITCHER 
  * Sits between the menu and the CTA button. Kept visually quiet (a
  * thin outlined pill) so it doesn't compete with the primary
  * "Get a Quote" button, but always visible on both language versions.
@@ -180,7 +181,7 @@ body {
   padding: 8px 12px;
 }
 
-/* Submenu (产品中心 dropdown) */
+/* Submenu ( dropdown) */
 .xxp-nav__has-sub {
   position: relative;
 }
@@ -211,10 +212,10 @@ body {
   animation: xxdq-dropdown-in .15s ease-out;
 }
 
-/* Mega menu (2 级布局：第一行 = 大分类名称，第二行 = 该大分类的子分类下拉)
-   把 13 个顶级按 4 列网格排开，避免单列 13 项又长又单调。
-   选择器用 .xxp-nav__dropdown.xxp-nav__dropdown--mega 双类链以提高特异性，
-   覆盖 blocks.css 中定义的 .xxp-nav__dropdown { min-width: 180px; }。      */
+/* Mega menu (2  =  = )
+    13  4  13 
+    .xxp-nav__dropdown.xxp-nav__dropdown--mega 
+    blocks.css  .xxp-nav__dropdown { min-width: 180px; }      */
 .xxp-nav__dropdown.xxp-nav__dropdown--mega,
 .xxp-nav__dropdown--mega {
   min-width: 760px;
@@ -289,9 +290,9 @@ body {
   text-decoration: none;
   border-radius: 4px;
   line-height: 1.4;
-  white-space: nowrap;       /* 保持一行 */
+  white-space: nowrap;       /*  */
   overflow: hidden;
-  text-overflow: ellipsis;   /* 太长截断 */
+  text-overflow: ellipsis;   /*  */
   transition: all .12s;
 }
 .xxp-nav__dropdown--mega .xxp-nav__dropdown-subs a:hover {
@@ -357,7 +358,7 @@ body {
 }
 .xxp-nav__has-sub:hover .xxp-nav__dropdown--mega,
 .xxp-nav__has-sub--open .xxp-nav__dropdown--mega {
-  display: grid !important;       /* mega menu 用 grid 列布局, 提高特异性压住其他规则 */
+  display: grid !important;       /* mega menu  grid ,  */
 }
 @keyframes xxdq-dropdown-in {
   from { opacity: 0; transform: translateY(-4px); }
@@ -369,8 +370,7 @@ body {
   .xxp-nav__menu { display: none; }
   .xxp-nav__burger { display: block; }
   .xxp-nav__cta { display: none; }
-  /* The language switcher must survive on mobile — on a phone it is
-   * often the ONLY way to reach the other language. */
+/* ===== ONLY ===== */
   .xxp-nav__lang { margin-right: 8px; }
   .xxp-nav__inner { justify-content: space-between; }
   body.xxp-menu-open .xxp-nav__menu {
@@ -418,7 +418,7 @@ body {
     padding-left: 36px;
   }
 
-  /* Mega menu 在移动端退化成传统的折叠列表 */
+  /* Mega menu  */
   body.xxp-menu-open .xxp-nav__dropdown--mega {
     grid-template-columns: 1fr;
     padding: 0 0 0 16px;
@@ -444,14 +444,14 @@ body {
   }
 }
 
-/* 鈹€鈹€ CONTAINER 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== CONTAINER ===== */
 .xxdq-container {
   max-width: var(--xx-container);
   margin: 0 auto;
   padding: 0 24px;
 }
 
-/* 鈹€鈹€ BUTTONS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== BUTTONS ===== */
 .xxdq-btn {
   display: inline-block;
   padding: 12px 28px;
@@ -489,7 +489,7 @@ body {
   color: var(--xx-white);
 }
 
-/* 鈹€鈹€ SECTION HEADER 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== SECTION HEADER ===== */
 .xxp-section-header {
   text-align: center;
   margin-bottom: 48px;
@@ -505,7 +505,7 @@ body {
   color: var(--xx-text-light);
 }
 
-/* 鈹€鈹€ HERO 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== HERO ===== */
 .xxp-hero {
   background: linear-gradient(135deg, #0D47A1 0%, #1565C0 50%, #1976D2 100%);
   color: var(--xx-white);
@@ -638,7 +638,7 @@ body {
   color: rgba(255,255,255,.9);
 }
 
-/* 鈹€鈹€ CATEGORIES 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== CATEGORIES ===== */
 .xxp-categories {
   padding: 80px 0;
   background: var(--xx-white);
@@ -716,7 +716,7 @@ body {
   color: var(--xx-blue);
 }
 
-/* 鈹€鈹€ HOT MODELS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== HOT MODELS ===== */
 .xxp-hot {
   padding: 80px 0;
   background: var(--xx-bg);
@@ -794,7 +794,7 @@ body {
   text-align: center;
 }
 
-/* 鈹€鈹€ WIRE SELECTOR 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== WIRE SELECTOR ===== */
 .xxdq-selector {
   padding: 80px 0;
   background: var(--xx-white);
@@ -852,7 +852,7 @@ body {
   color: var(--xx-text-light);
 }
 
-/* 鈹€鈹€ TRUST BADGES 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== TRUST BADGES ===== */
 .xxp-trust {
   padding: 60px 0;
   background: var(--xx-text);
@@ -885,7 +885,7 @@ body {
   line-height: 1.6;
 }
 
-/* 鈹€鈹€ WHY CHOOSE US 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== WHY CHOOSE US ===== */
 .xxp-why {
   padding: 80px 0;
   background: var(--xx-bg);
@@ -959,7 +959,7 @@ body {
   border-color: #E3F2FD;
 }
 
-/* 鈹€鈹€ FOOTER 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== FOOTER ===== */
 .xxp-footer {
   background: var(--xx-text);
   color: rgba(255,255,255,.85);
@@ -1018,7 +1018,7 @@ body {
     grid-template-columns: repeat(2, 1fr);
     gap: 32px;
   }
-}/* 鈹€鈹€ PRODUCT CATEGORY PAGE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+}/* ===== PRODUCT CATEGORY PAGE ===== */
 .xxp-cat-page__hero {
   background: linear-gradient(135deg, var(--xx-blue-dark), var(--xx-blue));
   color: var(--xx-white);
@@ -1207,7 +1207,7 @@ body {
   border-radius: 4px;
 }
 
-/* 鈹€鈹€ PRODUCT DETAIL PAGE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== PRODUCT DETAIL PAGE ===== */
 .xxdq-prod-detail {
   padding: 32px 0 80px;
   background: var(--xx-bg);
@@ -1230,7 +1230,7 @@ body.no-sidebar.tax-product_category .entry-content {
 }
 
 /* Hide GeneratePress entry header on product detail + product_category
- * archive so each page only has ONE <h1> 锟?the one we render in our
+ * archive so each page only has ONE <h1> ?the one we render in our
  * layout. Avoids duplicate-H1 SEO problem. */
 body.single-product .entry-header,
 body.tax-product_category .page-header,
@@ -1337,7 +1337,7 @@ body.tax-product_category .entry-header {
   font-weight: 600;
 }
 
-/* 鈹€鈹€ Hero: 2-col image + info (full-width, no right sidebar) 鈹€鈹€ */
+/*  Hero: 2-col image + info (full-width, no right sidebar)  */
 .xxdq-prod-detail__hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
@@ -1365,7 +1365,7 @@ body.tax-product_category .entry-header {
   object-fit: contain;
 }
 
-/* 鈹€鈹€ Full-width tech / spec drawing BELOW the hero 鈹€鈹€ */
+/*  Full-width tech / spec drawing BELOW the hero  */
 .xxdq-prod-detail__tech-section {
   margin-top: 32px;
   background: var(--xx-white);
@@ -1503,7 +1503,7 @@ body.tax-product_category .entry-header {
   .xxdq-quick-selector { position: static; }
 }
 
-/* 鈹€鈹€ RESPONSIVE 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) {
   .xxp-hero .xxdq-container { grid-template-columns: 1fr; gap: 40px; }
   .xxp-hero__title { font-size: 38px; }
@@ -1527,7 +1527,7 @@ body.tax-product_category .entry-header {
   .xxdq-wire-btn { min-width: 52px; padding: 8px 10px; font-size: 14px; }
 }
 
-/* 鈹€鈹€ GENERATEPRESS OVERRIDES 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/* ===== GENERATEPRESS OVERRIDES ===== */
 body,
 body.home,
 body.page-id-7 {
@@ -1550,7 +1550,7 @@ body.page-id-7 {
   padding-top: 64px !important;
 }
 /* Home + page-id-7 keep their full-bleed hero that paints behind the nav,
- * so no offset — they handle their own top spacing. */
+ * so no offset  they handle their own top spacing. */
 .home .site-content,
 .page-id-7 .site-content {
   padding-top: 0;
@@ -1560,7 +1560,7 @@ body.page-id-7 {
 .entry-content { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
 .xxp-why__inner > div:last-child .xxdq-btn { display: inline-block; }
 
-/* 鈹€鈹€ PRODUCT SIDEBAR + CONTENT LAYOUT 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/*  PRODUCT SIDEBAR + CONTENT LAYOUT  */
 .xxp-cat-page__layout,
 .xxp-catalog-layout {
   display: grid;
@@ -1575,7 +1575,7 @@ body.page-id-7 {
   min-width: 0;
 }
 
-/* Filter bar (shown when /浜у搧涓績/?cat=xxx is active) */
+/* Filter bar (shown when /产品中心/?cat=xxx is active) */
 .xxp-filter-bar {
   display: flex;
   align-items: center;
@@ -1618,7 +1618,7 @@ body.page-id-7 {
   text-decoration: none;
 }
 
-/* 鈹€鈹€ NEWS CENTER PAGE (鏂伴椈涓績) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */
+/*  NEWS CENTER PAGE (新闻中心)  */
 .xxp-news-page .xxp-news-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
@@ -1896,11 +1896,11 @@ body.page-id-7 {
   .xxp-cat-sidebar__cta { margin: 4px 14px 14px; padding: 14px; }
 }
 
-/* ── Top-nav fix: cap the logo width on small screens so the burger
+/*  Top-nav fix: cap the logo width on small screens so the burger
  *    menu button never gets pushed off-canvas.
  *    The logo image is already constrained to 140px (via .custom-logo
  *    max-width). The text container (.xxp-nav__logo-text) is the real
- *    offender — at 18px the company name "乐清市耕文电气有限公司"
+ *    offender  at 18px the company name ""
  *    wraps to 198px on a 375px screen and steals the burger's slot.
  *    Hide the text below 768px; the icon alone is enough brand on
  *    mobile and matches common header patterns. */
@@ -1908,14 +1908,14 @@ body.page-id-7 {
   .xxp-nav__logo-text { display: none; }
 }
 
-/* ── Per-page hero suppression: the cable-lug-calculator page owns
+/*  Per-page hero suppression: the cable-lug-calculator page owns
  *    its own H1 inside the .xxdq-selector block, so the page-level
  *    <header class="xxdq-page-hero"> is a duplicate H1 (bad for SEO
  *    and a11y). Hide the entire hero chrome for this page; the
  *    calculator's own dark hero section is the visual marker. */
 body.page-id-13 .xxdq-page-hero { display: none; }
 
-/* ── Remove the leftover GeneratePress footer wrapper ───────────
+/*  Remove the leftover GeneratePress footer wrapper 
  * We unhook GP's `generate_construct_footer` action so the
  * "Built with GeneratePress" credit bar is gone, but GP's
  * footer.php still emits the wrapper:
@@ -1930,7 +1930,7 @@ body.page-id-13 .xxdq-page-hero { display: none; }
  * "is it empty?". Reason: the ONLY two callbacks GP registers on
  * `generate_footer` (generate_construct_footer_widgets and
  * generate_construct_footer) are both unhooked in xxdq-theme.php, so
- * the wrapper is guaranteed to have no content on this site — and our
+ * the wrapper is guaranteed to have no content on this site  and our
  * own footer renders on `generate_before_footer`, outside it.
  *
  * NOTE: `:empty` was tried first and does NOT work: the div contains

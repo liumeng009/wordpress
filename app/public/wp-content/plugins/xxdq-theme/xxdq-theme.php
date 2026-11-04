@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) exit;
 
 define('XXDQ_THEME_DIR', plugin_dir_path(__FILE__));
 define('XXDQ_THEME_URL', plugin_dir_url(__FILE__));
-define('XXDQ_THEME_VERSION', '2.6.1');
+define('XXDQ_THEME_VERSION', '2.6.2');
 
 /* ── 0. I18N LAYER (English site under /en/) ────────────────
  * The language context layer must load before anything else so that

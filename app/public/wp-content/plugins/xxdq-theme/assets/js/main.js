@@ -1,112 +1,176 @@
-﻿/* XX鐢垫皵 鈥?Main JS */
-(function($) {
-  'use strict';
-
-  $(function() {
-
-    /* Mobile burger menu */
-    $('#xxp-nav-burger').on('click', function() {
-      $('body').toggleClass('xxp-menu-open');
-      $(this).text($('body').hasClass('xxp-menu-open') ? '鉁? : '鈽?);
-    });
-
-    /* Close menu on link click (mobile) */
-    $('.xxp-nav__menu a').on('click', function() {
-      if ($(window).width() <= 900) {
-        // Don't close if it's the dropdown toggle itself
-        if ($(this).hasClass('xxp-nav__toggle')) return;
-        $('body').removeClass('xxp-menu-open');
-        $('#xxp-nav-burger').text('鈽?);
-      }
-    });
-
-    /* Dropdown: hover for desktop, click for mobile/touch */
-    var $hasSub = $('.xxp-nav__has-sub');
-    var $toggle = $hasSub.children('a.xxp-nav__toggle');
-
-    // Touch / click toggle (mobile only 鈥?desktop keeps the link clickable)
-    $toggle.on('click', function(e) {
-      if ($(window).width() > 900) return; // desktop: let link navigate
-      e.preventDefault();
-      e.stopPropagation();
-      // Close other open sub-menus first
-      $hasSub.not($(this).parent()).removeClass('xxp-nav__has-sub--open');
-      $(this).parent().toggleClass('xxp-nav__has-sub--open');
-    });
-
-    // Close on outside click
-    $(document).on('click', function(e) {
-      if (!$(e.target).closest('.xxp-nav__has-sub').length) {
-        $hasSub.removeClass('xxp-nav__has-sub--open');
-      }
-    });
-
-    /* Wire selector button hover effect */
-    $('.xxdq-wire-btn').on('mouseenter', function() {
-      $(this).siblings().not(this).css('opacity', '0.7');
-    }).on('mouseleave', function() {
-      $('.xxdq-wire-btn').css('opacity', '1');
-    });
-
-  });
-
-  /* Smooth scroll for anchor links */
-  $('a[href^="#"]').on('click', function(e) {
-    var target = $(this.getAttribute('href'));
-    if (target.length) {
-      e.preventDefault();
-      $('html, body').stop().animate({ scrollTop: target.offset().top - 80 }, 400);
-    }
-  });
-
-  /* Category card entrance animation */
-  var catObserver = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        $(entry.target).css('opacity', '1').css('transform', 'translateY(0)');
-        catObserver.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.1 });
-
-  $('.xxp-cat-card').each(function(i) {
-    $(this).css({
-      opacity: '0',
-      transform: 'translateY(20px)',
-      transition: 'opacity 0.4s ease ' + (i * 0.08) + 's, transform 0.4s ease ' + (i * 0.08) + 's'
-    });
-    catObserver.observe(this);
-  });
-
-  /* Hot card entrance animation */
-  $('.xxp-hot-card').each(function(i) {
-    $(this).css({
-      opacity: '0',
-      transform: 'translateY(16px)',
-      transition: 'opacity 0.35s ease ' + (i * 0.06) + 's, transform 0.35s ease ' + (i * 0.06) + 's'
-    });
-    catObserver.observe(this);
-  });
-
-})(jQuery);
-
-/* ── Phase 9: Hero Slider ────────────────────────────
-   Vanilla-JS slider: reads data-autoplay, shows prev/next arrows
-   and dot navigation, autoplay-pauses on mouse-hover. */
+﻿/* XXDQ - Main JS
+ *
+ * Vanilla JS, no jQuery.
+ *
+ * GeneratePress 3.5 dropped jQuery entirely and this site never
+ * enqueued it, so the previous jQuery-based version of this file
+ * threw a ReferenceError on load and NOTHING in it ran — the mobile
+ * burger menu silently did nothing.
+ */
 (function () {
   'use strict';
 
+  /* ── Mobile burger menu ────────────────────────────────────────
+   * The icons are Unicode escapes rather than literal characters:
+   * a literal "☰" can be mangled by an editor that saves in another
+   * encoding, and a mangled byte inside a string literal breaks the
+   * whole file. An escape sequence cannot be corrupted that way. */
+  var ICON_MENU = '\u2630';   /* ☰ */
+  var ICON_CLOSE = '\u2715';  /* ✕ */
+
+  var MOBILE_MAX = 900;
+
+  function isMobile() {
+    return window.innerWidth <= MOBILE_MAX;
+  }
+
+  function setMenuOpen(open) {
+    document.body.classList.toggle('xxp-menu-open', open);
+    var burger = document.getElementById('xxp-nav-burger');
+    if (burger) {
+      burger.textContent = open ? ICON_CLOSE : ICON_MENU;
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+  }
+
+  function initBurger() {
+    var burger = document.getElementById('xxp-nav-burger');
+    if (!burger) return;
+
+    burger.setAttribute('aria-expanded', 'false');
+
+    burger.addEventListener('click', function (e) {
+      e.preventDefault();
+      setMenuOpen(!document.body.classList.contains('xxp-menu-open'));
+    });
+
+    /* Close the panel when a menu link is followed. The dropdown
+     * toggle itself is excluded — it opens a sub-menu instead. */
+    var links = document.querySelectorAll('.xxp-nav__menu a');
+    for (var i = 0; i < links.length; i++) {
+      links[i].addEventListener('click', function (e) {
+        if (!isMobile()) return;
+        if (this.classList.contains('xxp-nav__toggle')) return;
+        setMenuOpen(false);
+      });
+    }
+  }
+
+  /* ── Dropdown: hover on desktop, tap on mobile ──────────────── */
+  function initDropdowns() {
+    var parents = document.querySelectorAll('.xxp-nav__has-sub');
+
+    for (var i = 0; i < parents.length; i++) {
+      (function (parent) {
+        var toggle = parent.querySelector(':scope > a.xxp-nav__toggle');
+        if (!toggle) return;
+
+        toggle.addEventListener('click', function (e) {
+          /* Desktop keeps the link clickable. */
+          if (!isMobile()) return;
+          e.preventDefault();
+          e.stopPropagation();
+
+          /* Close the other open sub-menus first. */
+          for (var j = 0; j < parents.length; j++) {
+            if (parents[j] !== parent) {
+              parents[j].classList.remove('xxp-nav__has-sub--open');
+            }
+          }
+          parent.classList.toggle('xxp-nav__has-sub--open');
+        });
+      })(parents[i]);
+    }
+
+    /* Clicking outside closes any open sub-menu. */
+    document.addEventListener('click', function (e) {
+      var target = e.target;
+      if (target && target.closest && target.closest('.xxp-nav__has-sub')) return;
+      for (var j = 0; j < parents.length; j++) {
+        parents[j].classList.remove('xxp-nav__has-sub--open');
+      }
+    });
+  }
+
+  /* ── Wire selector button hover effect ─────────────────────── */
+  function initWireButtons() {
+    var buttons = document.querySelectorAll('.xxdq-wire-btn');
+    for (var i = 0; i < buttons.length; i++) {
+      (function (btn) {
+        btn.addEventListener('mouseenter', function () {
+          var sibs = btn.parentNode ? btn.parentNode.children : [];
+          for (var j = 0; j < sibs.length; j++) {
+            if (sibs[j] !== btn) sibs[j].style.opacity = '0.7';
+          }
+        });
+        btn.addEventListener('mouseleave', function () {
+          var sibs = btn.parentNode ? btn.parentNode.children : [];
+          for (var j = 0; j < sibs.length; j++) {
+            sibs[j].style.opacity = '1';
+          }
+        });
+      })(buttons[i]);
+    }
+  }
+
+  /* ── Smooth scroll for anchor links ────────────────────────── */
+  function initSmoothScroll() {
+    var anchors = document.querySelectorAll('a[href^="#"]');
+    for (var i = 0; i < anchors.length; i++) {
+      anchors[i].addEventListener('click', function (e) {
+        var href = this.getAttribute('href');
+        if (!href || href === '#') return;
+        var target = document.querySelector(href);
+        if (!target) return;
+        e.preventDefault();
+        var top = target.getBoundingClientRect().top + window.pageYOffset - 80;
+        window.scrollTo({ top: top, behavior: 'smooth' });
+      });
+    }
+  }
+
+  /* ── Entrance animations ───────────────────────────────────── */
+  function initEntranceAnimations() {
+    if (!('IntersectionObserver' in window)) return;
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+        observer.unobserve(entry.target);
+      });
+    }, { threshold: 0.1 });
+
+    var cats = document.querySelectorAll('.xxp-cat-card');
+    for (var i = 0; i < cats.length; i++) {
+      cats[i].style.opacity = '0';
+      cats[i].style.transform = 'translateY(20px)';
+      cats[i].style.transition = 'opacity 0.4s ease ' + (i * 0.08) + 's, transform 0.4s ease ' + (i * 0.08) + 's';
+      observer.observe(cats[i]);
+    }
+
+    var hots = document.querySelectorAll('.xxp-hot-card');
+    for (var k = 0; k < hots.length; k++) {
+      hots[k].style.opacity = '0';
+      hots[k].style.transform = 'translateY(16px)';
+      hots[k].style.transition = 'opacity 0.35s ease ' + (k * 0.06) + 's, transform 0.35s ease ' + (k * 0.06) + 's';
+      observer.observe(hots[k]);
+    }
+  }
+
+  /* ── Hero slider ───────────────────────────────────────────── */
   function initSlider(slider) {
     var slides = slider.querySelectorAll('.xxdq-hero-slider__slide');
-    var dots  = slider.querySelectorAll('.xxdq-hero-slider__dot');
-    var prev  = slider.querySelector('.xxdq-hero-slider__arrow--prev');
-    var next  = slider.querySelector('.xxdq-hero-slider__arrow--next');
+    var dots = slider.querySelectorAll('.xxdq-hero-slider__dot');
+    var prev = slider.querySelector('.xxdq-hero-slider__arrow--prev');
+    var next = slider.querySelector('.xxdq-hero-slider__arrow--next');
     if (slides.length === 0) return;
 
-    var current  = 0;
-    var total    = slides.length;
+    var current = 0;
+    var total = slides.length;
     var autoplay = parseInt(slider.dataset.autoplay, 10) || 5000;
-    var timer    = null;
+    var timer = null;
 
     function go(n) {
       slides[current].classList.remove('xxdq-hero-slider__slide--active');
@@ -126,20 +190,31 @@
 
     if (prev) prev.addEventListener('click', function () { stop(); go(current - 1); start(); });
     if (next) next.addEventListener('click', function () { stop(); go(current + 1); start(); });
-    dots.forEach(function (dot, i) {
-      dot.addEventListener('click', function () { stop(); go(i); start(); });
-    });
+    for (var i = 0; i < dots.length; i++) {
+      (function (dot, idx) {
+        dot.addEventListener('click', function () { stop(); go(idx); start(); });
+      })(dots[i], i);
+    }
     slider.addEventListener('mouseenter', stop);
     slider.addEventListener('mouseleave', start);
 
-    // Initialise first slide
     slides[0].classList.add('xxdq-hero-slider__slide--active');
     if (dots[0]) dots[0].classList.add('xxdq-hero-slider__dot--active');
     start();
   }
 
+  function initSliders() {
+    var sliders = document.querySelectorAll('.xxdq-hero-slider');
+    for (var i = 0; i < sliders.length; i++) initSlider(sliders[i]);
+  }
+
   function boot() {
-    document.querySelectorAll('.xxdq-hero-slider').forEach(initSlider);
+    initBurger();
+    initDropdowns();
+    initWireButtons();
+    initSmoothScroll();
+    initEntranceAnimations();
+    initSliders();
   }
 
   if (document.readyState === 'loading') {
